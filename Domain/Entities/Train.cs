@@ -1,17 +1,17 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 
 namespace ProRental.Domain.Entities;
 
 public partial class Train
 {
-    public int TransportId { get; set; }
+    public int TransportId { get; private set; }
 
-    public int TrainId { get; set; }
+    public int TrainId { get; private set; }
 
-    public string? TrainType { get; set; }
+    public string? TrainType { get; private set; }
 
-    public string? LicensePlate { get; set; }
+    public string? LicensePlate { get; private set; }
 
-    public virtual Transport Transport { get; set; } = null!;
+    public virtual Transport Transport { get; private set; } = null!;
 }

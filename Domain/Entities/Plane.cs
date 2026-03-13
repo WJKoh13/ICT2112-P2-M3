@@ -1,17 +1,17 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 
 namespace ProRental.Domain.Entities;
 
 public partial class Plane
 {
-    public int TransportId { get; set; }
+    public int TransportId { get; private set; }
 
-    public int PlaneId { get; set; }
+    public int PlaneId { get; private set; }
 
-    public string? PlaneType { get; set; }
+    public string? PlaneType { get; private set; }
 
-    public string? PlaneCallsign { get; set; }
+    public string? PlaneCallsign { get; private set; }
 
-    public virtual Transport Transport { get; set; } = null!;
+    public virtual Transport Transport { get; private set; } = null!;
 }

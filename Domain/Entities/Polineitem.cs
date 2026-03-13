@@ -1,23 +1,23 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 
 namespace ProRental.Domain.Entities;
 
 public partial class Polineitem
 {
-    public int Polineid { get; set; }
+    public int Polineid { get; private set; }
 
-    public int? Poid { get; set; }
+    public int? Poid { get; private set; }
 
-    public int? Productid { get; set; }
+    public int? Productid { get; private set; }
 
-    public int? Qty { get; set; }
+    public int? Qty { get; private set; }
 
-    public decimal? Unitprice { get; set; }
+    public decimal? Unitprice { get; private set; }
 
-    public decimal? Linetotal { get; set; }
+    public decimal? Linetotal { get; private set; }
 
-    public virtual Purchaseorder? Po { get; set; }
+    public virtual Purchaseorder? Po { get; private set; }
 
-    public virtual Stockitem? Product { get; set; }
+    public virtual Stockitem? Product { get; private set; }
 }

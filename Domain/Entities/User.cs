@@ -1,29 +1,29 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 
 namespace ProRental.Domain.Entities;
 
 public partial class User
 {
-    public int Userid { get; set; }
+    public int Userid { get; private set; }
 
-    public string Name { get; set; } = null!;
+    public string Name { get; private set; } = null!;
 
-    public string Email { get; set; } = null!;
+    public string Email { get; private set; } = null!;
 
-    public string Passwordhash { get; set; } = null!;
+    public string Passwordhash { get; private set; } = null!;
 
-    public int? Phonecountry { get; set; }
+    public int? Phonecountry { get; private set; }
 
-    public string? Phonenumber { get; set; }
+    public string? Phonenumber { get; private set; }
 
-    public virtual ICollection<Customer> Customers { get; set; } = new List<Customer>();
+    public virtual ICollection<Customer> Customers { get; private set; } = new List<Customer>();
 
-    public virtual ICollection<Notificationpreference> Notificationpreferences { get; set; } = new List<Notificationpreference>();
+    public virtual ICollection<Notificationpreference> Notificationpreferences { get; private set; } = new List<Notificationpreference>();
 
-    public virtual ICollection<Notification> Notifications { get; set; } = new List<Notification>();
+    public virtual ICollection<Notification> Notifications { get; private set; } = new List<Notification>();
 
-    public virtual ICollection<Session> Sessions { get; set; } = new List<Session>();
+    public virtual ICollection<Session> Sessions { get; private set; } = new List<Session>();
 
-    public virtual ICollection<Staff> Staff { get; set; } = new List<Staff>();
+    public virtual ICollection<Staff> Staff { get; private set; } = new List<Staff>();
 }

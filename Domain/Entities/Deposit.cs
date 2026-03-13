@@ -1,27 +1,27 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 
 namespace ProRental.Domain.Entities;
 
 public partial class Deposit
 {
-    public string Depositid { get; set; } = null!;
+    public string Depositid { get; private set; } = null!;
 
-    public int Orderid { get; set; }
+    public int Orderid { get; private set; }
 
-    public int Transactionid { get; set; }
+    public int Transactionid { get; private set; }
 
-    public decimal Originalamount { get; set; }
+    public decimal Originalamount { get; private set; }
 
-    public decimal Heldamount { get; set; }
+    public decimal Heldamount { get; private set; }
 
-    public decimal? Refundedamount { get; set; }
+    public decimal? Refundedamount { get; private set; }
 
-    public decimal? Forfeitedamount { get; set; }
+    public decimal? Forfeitedamount { get; private set; }
 
-    public DateTime Createdat { get; set; }
+    public DateTime Createdat { get; private set; }
 
-    public virtual Order Order { get; set; } = null!;
+    public virtual Order Order { get; private set; } = null!;
 
-    public virtual Transaction Transaction { get; set; } = null!;
+    public virtual Transaction Transaction { get; private set; } = null!;
 }

@@ -1,21 +1,21 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 
 namespace ProRental.Domain.Entities;
 
 public partial class Warehouse
 {
-    public int HubId { get; set; }
+    public int HubId { get; private set; }
 
-    public string WarehouseCode { get; set; } = null!;
+    public string WarehouseCode { get; private set; } = null!;
 
-    public double? TotalWarehouseVolume { get; set; }
+    public double? TotalWarehouseVolume { get; private set; }
 
-    public double? ClimateControlEmissionRate { get; set; }
+    public double? ClimateControlEmissionRate { get; private set; }
 
-    public double? LightingEmissionRate { get; set; }
+    public double? LightingEmissionRate { get; private set; }
 
-    public double? SecuritySystemEmissionRate { get; set; }
+    public double? SecuritySystemEmissionRate { get; private set; }
 
-    public virtual TransportationHub Hub { get; set; } = null!;
+    public virtual TransportationHub Hub { get; private set; } = null!;
 }
