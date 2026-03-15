@@ -1,23 +1,23 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 
 namespace ProRental.Domain.Entities;
 
 public partial class Transaction
 {
-    public int Transactionid { get; set; }
+    public int Transactionid { get; private set; }
 
-    public int Orderid { get; set; }
+    public decimal Amount { get; private set; }
 
-    public decimal Amount { get; set; }
+    public string? Providertransactionid { get; private set; }
 
-    public string? Providertransactionid { get; set; }
+    public DateTime Createdat { get; private set; }
 
-    public DateTime Createdat { get; set; }
+    public virtual ICollection<Deposit> Deposits { get; private set; } = new List<Deposit>();
 
-    public virtual ICollection<Deposit> Deposits { get; set; } = new List<Deposit>();
+    public virtual ICollection<Order> Orders { get; private set; } = new List<Order>();
 
-    public virtual Order Order { get; set; } = null!;
+    public virtual ICollection<Payment> Payments { get; private set; } = new List<Payment>();
 
-    public virtual ICollection<Payment> Payments { get; set; } = new List<Payment>();
+    public virtual ICollection<Refund> Refunds { get; private set; } = new List<Refund>();
 }

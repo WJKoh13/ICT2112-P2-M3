@@ -1,17 +1,17 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 
 namespace ProRental.Domain.Entities;
 
 public partial class Notificationpreference
 {
-    public int Preferenceid { get; set; }
+    public int Preferenceid { get; private set; }
 
-    public int Userid { get; set; }
+    public int Userid { get; private set; }
 
-    public bool Emailenabled { get; set; }
+    public bool Emailenabled { get; private set; }
 
-    public bool Smsenabled { get; set; }
+    public bool Smsenabled { get; private set; }
 
-    public virtual User User { get; set; } = null!;
+    public virtual User User { get; private set; } = null!;
 }

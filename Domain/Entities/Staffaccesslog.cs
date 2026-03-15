@@ -1,15 +1,15 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 
 namespace ProRental.Domain.Entities;
 
 public partial class Staffaccesslog
 {
-    public int Accessid { get; set; }
+    public int Accessid { get; private set; }
 
-    public int Staffid { get; set; }
+    public int Staffid { get; private set; }
 
-    public DateTime Eventtime { get; set; }
+    public DateTime Eventtime { get; private set; }
 
-    public virtual Staff Staff { get; set; } = null!;
+    public virtual Staff Staff { get; private set; } = null!;
 }

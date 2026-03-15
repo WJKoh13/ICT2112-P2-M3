@@ -1,33 +1,33 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 
 namespace ProRental.Domain.Entities;
 
 public partial class TransportationHub
 {
-    public int HubId { get; set; }
+    public int HubId { get; private set; }
 
-    public double Longitude { get; set; }
+    public double Longitude { get; private set; }
 
-    public double Latitude { get; set; }
+    public double Latitude { get; private set; }
 
-    public string CountryCode { get; set; } = null!;
+    public string CountryCode { get; private set; } = null!;
 
-    public string Address { get; set; } = null!;
+    public string Address { get; private set; } = null!;
 
-    public string? OperationalStatus { get; set; }
+    public string? OperationalStatus { get; private set; }
 
-    public string? OperationTime { get; set; }
+    public string? OperationTime { get; private set; }
 
-    public virtual Airport? Airport { get; set; }
+    public virtual Airport? Airport { get; private set; }
 
-    public virtual ICollection<DeliveryBatch> DeliveryBatches { get; set; } = new List<DeliveryBatch>();
+    public virtual ICollection<DeliveryBatch> DeliveryBatches { get; private set; } = new List<DeliveryBatch>();
 
-    public virtual ICollection<Route> RouteDestinationHubs { get; set; } = new List<Route>();
+    public virtual ICollection<Route> RouteDestinationHubs { get; private set; } = new List<Route>();
 
-    public virtual ICollection<Route> RouteOriginHubs { get; set; } = new List<Route>();
+    public virtual ICollection<Route> RouteOriginHubs { get; private set; } = new List<Route>();
 
-    public virtual ShippingPort? ShippingPort { get; set; }
+    public virtual ShippingPort? ShippingPort { get; private set; }
 
-    public virtual Warehouse? Warehouse { get; set; }
+    public virtual Warehouse? Warehouse { get; private set; }
 }

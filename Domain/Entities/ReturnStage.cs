@@ -1,29 +1,29 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 
 namespace ProRental.Domain.Entities;
 
 public partial class ReturnStage
 {
-    public int StageId { get; set; }
+    public int StageId { get; private set; }
 
-    public int ReturnId { get; set; }
+    public int ReturnId { get; private set; }
 
-    public double? EnergyKwh { get; set; }
+    public double? EnergyKwh { get; private set; }
 
-    public double? LabourHours { get; set; }
+    public double? LabourHours { get; private set; }
 
-    public double? MaterialsKg { get; set; }
+    public double? MaterialsKg { get; private set; }
 
-    public double? CleaningSuppliesQty { get; set; }
+    public double? CleaningSuppliesQty { get; private set; }
 
-    public double? WaterLitres { get; set; }
+    public double? WaterLitres { get; private set; }
 
-    public double? PackagingKg { get; set; }
+    public double? PackagingKg { get; private set; }
 
-    public double? StorageHours { get; set; }
+    public double? StorageHours { get; private set; }
 
-    public virtual ICollection<CarbonEmission> CarbonEmissions { get; set; } = new List<CarbonEmission>();
+    public virtual ICollection<CarbonEmission> CarbonEmissions { get; private set; } = new List<CarbonEmission>();
 
-    public virtual ProductReturn Return { get; set; } = null!;
+    public virtual ProductReturn Return { get; private set; } = null!;
 }

@@ -1,49 +1,53 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 
 namespace ProRental.Domain.Entities;
 
 public partial class Order
 {
-    public int Orderid { get; set; }
+    public int Orderid { get; private set; }
 
-    public int Customerid { get; set; }
+    public int Customerid { get; private set; }
 
-    public int Checkoutid { get; set; }
+    public int Checkoutid { get; private set; }
 
-    public DateTime Orderdate { get; set; }
+    public int? Transactionid { get; private set; }
 
-    public decimal Totalamount { get; set; }
+    public DateTime Orderdate { get; private set; }
 
-    public virtual ICollection<BatchOrder> BatchOrders { get; set; } = new List<BatchOrder>();
+    public decimal Totalamount { get; private set; }
 
-    public virtual Checkout Checkout { get; set; } = null!;
+    public virtual ICollection<BatchOrder> BatchOrders { get; private set; } = new List<BatchOrder>();
 
-    public virtual Customer Customer { get; set; } = null!;
+    public virtual Checkout Checkout { get; private set; } = null!;
 
-    public virtual ICollection<CustomerChoice> CustomerChoices { get; set; } = new List<CustomerChoice>();
+    public virtual Customer Customer { get; private set; } = null!;
 
-    public virtual ICollection<Deliverymethod> Deliverymethods { get; set; } = new List<Deliverymethod>();
+    public virtual ICollection<CustomerChoice> CustomerChoices { get; private set; } = new List<CustomerChoice>();
 
-    public virtual ICollection<Deposit> Deposits { get; set; } = new List<Deposit>();
+    public virtual ICollection<Deliverymethod> Deliverymethods { get; private set; } = new List<Deliverymethod>();
 
-    public virtual ICollection<Loanlist> Loanlists { get; set; } = new List<Loanlist>();
+    public virtual ICollection<Deposit> Deposits { get; private set; } = new List<Deposit>();
 
-    public virtual ICollection<Orderitem> Orderitems { get; set; } = new List<Orderitem>();
+    public virtual ICollection<Loanlist> Loanlists { get; private set; } = new List<Loanlist>();
 
-    public virtual ICollection<Orderstatushistory> Orderstatushistories { get; set; } = new List<Orderstatushistory>();
+    public virtual ICollection<Ordercarbondatum> Ordercarbondata { get; private set; } = new List<Ordercarbondatum>();
 
-    public virtual ICollection<Packagingprofile> Packagingprofiles { get; set; } = new List<Packagingprofile>();
+    public virtual ICollection<Orderitem> Orderitems { get; private set; } = new List<Orderitem>();
 
-    public virtual ICollection<Payment> Payments { get; set; } = new List<Payment>();
+    public virtual ICollection<Orderstatushistory> Orderstatushistories { get; private set; } = new List<Orderstatushistory>();
 
-    public virtual ICollection<Refund> Refunds { get; set; } = new List<Refund>();
+    public virtual ICollection<Packagingprofile> Packagingprofiles { get; private set; } = new List<Packagingprofile>();
 
-    public virtual ICollection<Rentalorderlog> Rentalorderlogs { get; set; } = new List<Rentalorderlog>();
+    public virtual ICollection<Payment> Payments { get; private set; } = new List<Payment>();
 
-    public virtual ICollection<Returnrequest> Returnrequests { get; set; } = new List<Returnrequest>();
+    public virtual ICollection<Refund> Refunds { get; private set; } = new List<Refund>();
 
-    public virtual ICollection<Shipment> Shipments { get; set; } = new List<Shipment>();
+    public virtual ICollection<Rentalorderlog> Rentalorderlogs { get; private set; } = new List<Rentalorderlog>();
 
-    public virtual ICollection<Transaction> Transactions { get; set; } = new List<Transaction>();
+    public virtual ICollection<Returnrequest> Returnrequests { get; private set; } = new List<Returnrequest>();
+
+    public virtual ICollection<Shipment> Shipments { get; private set; } = new List<Shipment>();
+
+    public virtual Transaction? Transaction { get; private set; }
 }

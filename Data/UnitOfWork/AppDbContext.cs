@@ -19,6 +19,8 @@ public partial class AppDbContext : DbContext
 
     public virtual DbSet<Airport> Airports { get; set; }
 
+    public virtual DbSet<Alert> Alerts { get; set; }
+
     public virtual DbSet<Analytic> Analytics { get; set; }
 
     public virtual DbSet<BatchOrder> BatchOrders { get; set; }
@@ -76,6 +78,8 @@ public partial class AppDbContext : DbContext
     public virtual DbSet<Notificationpreference> Notificationpreferences { get; set; }
 
     public virtual DbSet<Order> Orders { get; set; }
+
+    public virtual DbSet<Ordercarbondatum> Ordercarbondata { get; set; }
 
     public virtual DbSet<Orderitem> Orderitems { get; set; }
 
@@ -173,12 +177,13 @@ public partial class AppDbContext : DbContext
 
     protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
 #warning To protect potentially sensitive information in your connection string, you should move it out of source code. You can avoid scaffolding the connection string by using the Name= syntax to read it from configuration - see https://go.microsoft.com/fwlink/?linkid=2131148. For more guidance on storing connection strings, see https://go.microsoft.com/fwlink/?LinkId=723263.
-        => optionsBuilder.UseNpgsql("Host=localhost;Port=5432;Database=pro_rental;Username=postgres;Password=password");
+        => optionsBuilder.UseNpgsql("Host=localhost;Port=5432;Database=pro_rental;Username=devuser;Password=devpassword");
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder
             .HasPostgresEnum("access_event_type", new[] { "IN", "OUT" })
+            .HasPostgresEnum("alert_status", new[] { "OPEN", "ACKNOWLEDGED", "RESOLVED" })
             .HasPostgresEnum("batch_status", new[] { "PENDING", "IN_PROGRESS", "COMPLETED", "CANCELLED" })
             .HasPostgresEnum("carbon_stage_type", new[] { "DAMAGE_INSPECTION", "REPAIRING", "SERVICING", "CLEANING", "RETURN" })
             .HasPostgresEnum("cart_status_enum", new[] { "ACTIVE", "CHECKED_OUT", "EXPIRED" })
@@ -243,6 +248,35 @@ public partial class AppDbContext : DbContext
             entity.HasOne(d => d.Hub).WithOne(p => p.Airport)
                 .HasForeignKey<Airport>(d => d.HubId)
                 .HasConstraintName("fk_airport_hub");
+        });
+
+        modelBuilder.Entity<Alert>(entity =>
+        {
+            entity.HasKey(e => e.Alertid).HasName("alert_pkey");
+
+            entity.ToTable("alert");
+
+            entity.Property(e => e.Alertid)
+                .UseIdentityAlwaysColumn()
+                .HasColumnName("alertid");
+            entity.Property(e => e.Createdat)
+                .HasDefaultValueSql("CURRENT_TIMESTAMP")
+                .HasColumnType("timestamp without time zone")
+                .HasColumnName("createdat");
+            entity.Property(e => e.Currentstock).HasColumnName("currentstock");
+            entity.Property(e => e.Message)
+                .HasMaxLength(255)
+                .HasColumnName("message");
+            entity.Property(e => e.Minthreshold).HasColumnName("minthreshold");
+            entity.Property(e => e.Productid).HasColumnName("productid");
+            entity.Property(e => e.Updatedat)
+                .HasDefaultValueSql("CURRENT_TIMESTAMP")
+                .HasColumnType("timestamp without time zone")
+                .HasColumnName("updatedat");
+
+            entity.HasOne(d => d.Product).WithMany(p => p.Alerts)
+                .HasForeignKey(d => d.Productid)
+                .HasConstraintName("fk_alert_product");
         });
 
         modelBuilder.Entity<Analytic>(entity =>
@@ -472,9 +506,7 @@ public partial class AppDbContext : DbContext
                 .HasColumnType("timestamp without time zone")
                 .HasColumnName("createdat");
             entity.Property(e => e.Customerid).HasColumnName("customerid");
-            entity.Property(e => e.Deliverymethodid)
-                .HasMaxLength(50)
-                .HasColumnName("deliverymethodid");
+            entity.Property(e => e.Deliveryid).HasColumnName("deliveryid");
             entity.Property(e => e.Notifyoptin)
                 .HasDefaultValue(false)
                 .HasColumnName("notifyoptin");
@@ -487,6 +519,11 @@ public partial class AppDbContext : DbContext
                 .HasForeignKey(d => d.Customerid)
                 .OnDelete(DeleteBehavior.Restrict)
                 .HasConstraintName("fk_checkout_customer");
+
+            entity.HasOne(d => d.Delivery).WithMany(p => p.Checkouts)
+                .HasForeignKey(d => d.Deliveryid)
+                .OnDelete(DeleteBehavior.Restrict)
+                .HasConstraintName("fk_checkout_delivery");
         });
 
         modelBuilder.Entity<Clearancebatch>(entity =>
@@ -613,20 +650,30 @@ public partial class AppDbContext : DbContext
 
         modelBuilder.Entity<Customerreward>(entity =>
         {
-            entity.HasKey(e => e.Customerrewardsid).HasName("customerrewards_pkey");
+            entity.HasKey(e => e.Rewardid).HasName("customerrewards_pkey");
 
             entity.ToTable("customerrewards");
 
-            entity.Property(e => e.Customerrewardsid)
+            entity.Property(e => e.Rewardid)
                 .UseIdentityAlwaysColumn()
-                .HasColumnName("customerrewardsid");
+                .HasColumnName("rewardid");
+            entity.Property(e => e.Createdat)
+                .HasColumnType("timestamp without time zone")
+                .HasColumnName("createdat");
             entity.Property(e => e.Customerid).HasColumnName("customerid");
-            entity.Property(e => e.Discount).HasColumnName("discount");
-            entity.Property(e => e.Totalcarbon).HasColumnName("totalcarbon");
+            entity.Property(e => e.Ordercarbondataid).HasColumnName("ordercarbondataid");
+            entity.Property(e => e.Rewardtype)
+                .HasMaxLength(50)
+                .HasColumnName("rewardtype");
+            entity.Property(e => e.Rewardvalue).HasColumnName("rewardvalue");
 
             entity.HasOne(d => d.Customer).WithMany(p => p.Customerrewards)
                 .HasForeignKey(d => d.Customerid)
                 .HasConstraintName("fk_customerrewards_customer");
+
+            entity.HasOne(d => d.Ordercarbondata).WithMany(p => p.Customerrewards)
+                .HasForeignKey(d => d.Ordercarbondataid)
+                .HasConstraintName("fk_customerrewards_ordercarbondata");
         });
 
         modelBuilder.Entity<Damagereport>(entity =>
@@ -720,7 +767,7 @@ public partial class AppDbContext : DbContext
                 .HasColumnName("createdat");
             entity.Property(e => e.Forfeitedamount)
                 .HasPrecision(10, 2)
-                .HasDefaultValue(0m)
+                .HasDefaultValueSql("0")
                 .HasColumnName("forfeitedamount");
             entity.Property(e => e.Heldamount)
                 .HasPrecision(10, 2)
@@ -731,7 +778,7 @@ public partial class AppDbContext : DbContext
                 .HasColumnName("originalamount");
             entity.Property(e => e.Refundedamount)
                 .HasPrecision(10, 2)
-                .HasDefaultValue(0m)
+                .HasDefaultValueSql("0")
                 .HasColumnName("refundedamount");
             entity.Property(e => e.Transactionid).HasColumnName("transactionid");
 
@@ -949,7 +996,9 @@ public partial class AppDbContext : DbContext
                 .HasDefaultValueSql("CURRENT_TIMESTAMP")
                 .HasColumnType("timestamp without time zone")
                 .HasColumnName("datesent");
-            entity.Property(e => e.Isread).HasColumnName("isread");
+            entity.Property(e => e.Isread)
+                .HasDefaultValue(false)
+                .HasColumnName("isread");
             entity.Property(e => e.Message)
                 .HasMaxLength(255)
                 .HasColumnName("message");
@@ -972,7 +1021,9 @@ public partial class AppDbContext : DbContext
             entity.Property(e => e.Emailenabled)
                 .HasDefaultValue(true)
                 .HasColumnName("emailenabled");
-            entity.Property(e => e.Smsenabled).HasColumnName("smsenabled");
+            entity.Property(e => e.Smsenabled)
+                .HasDefaultValue(false)
+                .HasColumnName("smsenabled");
             entity.Property(e => e.Userid).HasColumnName("userid");
 
             entity.HasOne(d => d.User).WithMany(p => p.Notificationpreferences)
@@ -997,6 +1048,7 @@ public partial class AppDbContext : DbContext
             entity.Property(e => e.Totalamount)
                 .HasPrecision(10, 2)
                 .HasColumnName("totalamount");
+            entity.Property(e => e.Transactionid).HasColumnName("transactionid");
 
             entity.HasOne(d => d.Checkout).WithMany(p => p.Orders)
                 .HasForeignKey(d => d.Checkoutid)
@@ -1006,6 +1058,38 @@ public partial class AppDbContext : DbContext
                 .HasForeignKey(d => d.Customerid)
                 .OnDelete(DeleteBehavior.Restrict)
                 .HasConstraintName("fk_order_customer");
+
+            entity.HasOne(d => d.Transaction).WithMany(p => p.Orders)
+                .HasForeignKey(d => d.Transactionid)
+                .OnDelete(DeleteBehavior.SetNull)
+                .HasConstraintName("fk_order_transaction");
+        });
+
+        modelBuilder.Entity<Ordercarbondatum>(entity =>
+        {
+            entity.HasKey(e => e.Ordercarbondataid).HasName("ordercarbondata_pkey");
+
+            entity.ToTable("ordercarbondata");
+
+            entity.Property(e => e.Ordercarbondataid)
+                .UseIdentityAlwaysColumn()
+                .HasColumnName("ordercarbondataid");
+            entity.Property(e => e.Buildingcarbon).HasColumnName("buildingcarbon");
+            entity.Property(e => e.Calculatedat)
+                .HasColumnType("timestamp without time zone")
+                .HasColumnName("calculatedat");
+            entity.Property(e => e.Impactlevel)
+                .HasMaxLength(20)
+                .HasColumnName("impactlevel");
+            entity.Property(e => e.Orderid).HasColumnName("orderid");
+            entity.Property(e => e.Packagingcarbon).HasColumnName("packagingcarbon");
+            entity.Property(e => e.Productcarbon).HasColumnName("productcarbon");
+            entity.Property(e => e.Staffcarbon).HasColumnName("staffcarbon");
+            entity.Property(e => e.Totalcarbon).HasColumnName("totalcarbon");
+
+            entity.HasOne(d => d.Order).WithMany(p => p.Ordercarbondata)
+                .HasForeignKey(d => d.Orderid)
+                .HasConstraintName("fk_ordercarbondata_order");
         });
 
         modelBuilder.Entity<Orderitem>(entity =>
@@ -1116,8 +1200,12 @@ public partial class AppDbContext : DbContext
             entity.Property(e => e.Name)
                 .HasMaxLength(100)
                 .HasColumnName("name");
-            entity.Property(e => e.Recyclable).HasColumnName("recyclable");
-            entity.Property(e => e.Reusable).HasColumnName("reusable");
+            entity.Property(e => e.Recyclable)
+                .HasDefaultValue(false)
+                .HasColumnName("recyclable");
+            entity.Property(e => e.Reusable)
+                .HasDefaultValue(false)
+                .HasColumnName("reusable");
             entity.Property(e => e.Type)
                 .HasMaxLength(50)
                 .HasColumnName("type");
@@ -1259,6 +1347,9 @@ public partial class AppDbContext : DbContext
             entity.Property(e => e.Sku)
                 .HasMaxLength(255)
                 .HasColumnName("sku");
+            entity.Property(e => e.Threshold)
+                .HasPrecision(5, 4)
+                .HasColumnName("threshold");
             entity.Property(e => e.Updatedat)
                 .HasDefaultValueSql("CURRENT_TIMESTAMP")
                 .HasColumnType("timestamp without time zone")
@@ -1300,7 +1391,7 @@ public partial class AppDbContext : DbContext
                 .HasColumnName("detailsid");
             entity.Property(e => e.Depositrate)
                 .HasPrecision(10, 2)
-                .HasDefaultValue(0m)
+                .HasDefaultValueSql("0")
                 .HasColumnName("depositrate");
             entity.Property(e => e.Description).HasColumnName("description");
             entity.Property(e => e.Image)
@@ -1313,7 +1404,9 @@ public partial class AppDbContext : DbContext
                 .HasPrecision(10, 2)
                 .HasColumnName("price");
             entity.Property(e => e.Productid).HasColumnName("productid");
-            entity.Property(e => e.Totalquantity).HasColumnName("totalquantity");
+            entity.Property(e => e.Totalquantity)
+                .HasDefaultValue(0)
+                .HasColumnName("totalquantity");
             entity.Property(e => e.Weight)
                 .HasPrecision(10, 2)
                 .HasColumnName("weight");
@@ -1414,7 +1507,7 @@ public partial class AppDbContext : DbContext
             entity.Property(e => e.Orderid).HasColumnName("orderid");
             entity.Property(e => e.Penaltyamount)
                 .HasPrecision(10, 2)
-                .HasDefaultValue(0.00m)
+                .HasDefaultValueSql("0.00")
                 .HasColumnName("penaltyamount");
             entity.Property(e => e.Returndate)
                 .HasColumnType("timestamp without time zone")
@@ -1422,6 +1515,8 @@ public partial class AppDbContext : DbContext
             entity.Property(e => e.Returnmethod)
                 .HasMaxLength(50)
                 .HasColumnName("returnmethod");
+            entity.Property(e => e.Returnrequestid).HasColumnName("returnrequestid");
+            entity.Property(e => e.Transactionid).HasColumnName("transactionid");
 
             entity.HasOne(d => d.Customer).WithMany(p => p.Refunds)
                 .HasForeignKey(d => d.Customerid)
@@ -1432,6 +1527,16 @@ public partial class AppDbContext : DbContext
                 .HasForeignKey(d => d.Orderid)
                 .OnDelete(DeleteBehavior.Restrict)
                 .HasConstraintName("fk_refund_order");
+
+            entity.HasOne(d => d.Returnrequest).WithMany(p => p.Refunds)
+                .HasForeignKey(d => d.Returnrequestid)
+                .OnDelete(DeleteBehavior.Restrict)
+                .HasConstraintName("fk_refund_return");
+
+            entity.HasOne(d => d.Transaction).WithMany(p => p.Refunds)
+                .HasForeignKey(d => d.Transactionid)
+                .OnDelete(DeleteBehavior.SetNull)
+                .HasConstraintName("fk_refund_transaction");
         });
 
         modelBuilder.Entity<Reliabilityrating>(entity =>
@@ -2012,14 +2117,9 @@ public partial class AppDbContext : DbContext
             entity.Property(e => e.Createdat)
                 .HasColumnType("timestamp without time zone")
                 .HasColumnName("createdat");
-            entity.Property(e => e.Orderid).HasColumnName("orderid");
             entity.Property(e => e.Providertransactionid)
                 .HasMaxLength(100)
                 .HasColumnName("providertransactionid");
-
-            entity.HasOne(d => d.Order).WithMany(p => p.Transactions)
-                .HasForeignKey(d => d.Orderid)
-                .HasConstraintName("fk_transaction_order");
         });
 
         modelBuilder.Entity<Transactionlog>(entity =>

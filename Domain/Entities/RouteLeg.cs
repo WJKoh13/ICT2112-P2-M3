@@ -1,31 +1,31 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 
 namespace ProRental.Domain.Entities;
 
 public partial class RouteLeg
 {
-    public int LegId { get; set; }
+    public int LegId { get; private set; }
 
-    public int RouteId { get; set; }
+    public int RouteId { get; private set; }
 
-    public int? Sequence { get; set; }
+    public int? Sequence { get; private set; }
 
-    public string? StartPoint { get; set; }
+    public string? StartPoint { get; private set; }
 
-    public string? EndPoint { get; set; }
+    public string? EndPoint { get; private set; }
 
-    public double? DistanceKm { get; set; }
+    public double? DistanceKm { get; private set; }
 
-    public bool? IsFirstMile { get; set; }
+    public bool? IsFirstMile { get; private set; }
 
-    public bool? IsLastMile { get; set; }
+    public bool? IsLastMile { get; private set; }
 
-    public int? TransportId { get; set; }
+    public int? TransportId { get; private set; }
 
-    public virtual ICollection<LegCarbon> LegCarbons { get; set; } = new List<LegCarbon>();
+    public virtual ICollection<LegCarbon> LegCarbons { get; private set; } = new List<LegCarbon>();
 
-    public virtual Route Route { get; set; } = null!;
+    public virtual Route Route { get; private set; } = null!;
 
-    public virtual Transport? Transport { get; set; }
+    public virtual Transport? Transport { get; private set; }
 }

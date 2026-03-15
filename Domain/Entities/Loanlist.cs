@@ -1,29 +1,29 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 
 namespace ProRental.Domain.Entities;
 
 public partial class Loanlist
 {
-    public int Loanlistid { get; set; }
+    public int Loanlistid { get; private set; }
 
-    public int Orderid { get; set; }
+    public int Orderid { get; private set; }
 
-    public int Customerid { get; set; }
+    public int Customerid { get; private set; }
 
-    public DateTime Loandate { get; set; }
+    public DateTime Loandate { get; private set; }
 
-    public DateTime Duedate { get; set; }
+    public DateTime Duedate { get; private set; }
 
-    public DateTime? Returndate { get; set; }
+    public DateTime? Returndate { get; private set; }
 
-    public string? Remarks { get; set; }
+    public string? Remarks { get; private set; }
 
-    public virtual Customer Customer { get; set; } = null!;
+    public virtual Customer Customer { get; private set; } = null!;
 
-    public virtual ICollection<Loanitem> Loanitems { get; set; } = new List<Loanitem>();
+    public virtual ICollection<Loanitem> Loanitems { get; private set; } = new List<Loanitem>();
 
-    public virtual ICollection<Loanlog> Loanlogs { get; set; } = new List<Loanlog>();
+    public virtual ICollection<Loanlog> Loanlogs { get; private set; } = new List<Loanlog>();
 
-    public virtual Order Order { get; set; } = null!;
+    public virtual Order Order { get; private set; } = null!;
 }

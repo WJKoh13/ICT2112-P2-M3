@@ -1,21 +1,21 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 
 namespace ProRental.Domain.Entities;
 
 public partial class Clearancelog
 {
-    public int Clearancelogid { get; set; }
+    public int Clearancelogid { get; private set; }
 
-    public int Clearancebatchid { get; set; }
+    public int Clearancebatchid { get; private set; }
 
-    public string? Batchname { get; set; }
+    public string? Batchname { get; private set; }
 
-    public DateTime? Clearancedate { get; set; }
+    public DateTime? Clearancedate { get; private set; }
 
-    public string? Detailsjson { get; set; }
+    public string? Detailsjson { get; private set; }
 
-    public virtual Clearancebatch Clearancebatch { get; set; } = null!;
+    public virtual Clearancebatch Clearancebatch { get; private set; } = null!;
 
-    public virtual Transactionlog ClearancelogNavigation { get; set; } = null!;
+    public virtual Transactionlog ClearancelogNavigation { get; private set; } = null!;
 }
