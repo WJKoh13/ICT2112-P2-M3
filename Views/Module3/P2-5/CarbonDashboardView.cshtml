@@ -1,0 +1,364 @@
+@{
+    ViewData["Title"] = "Carbon Dashboard";
+    Layout = null;
+}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Carbon Dashboard - Pro Rentals</title>
+    <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" />
+    <link rel="stylesheet" href="~/lib/bootstrap-icons/font/bootstrap-icons.min.css" />
+    <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
+    <style>
+        body { margin-bottom: 0; }
+
+        .carbon-dashboard {
+            background:
+                radial-gradient(circle at top right, rgba(26, 147, 111, 0.18), transparent 28%),
+                linear-gradient(180deg, #f4fbf8 0%, #edf7f2 100%);
+            min-height: 100vh;
+        }
+
+        .dashboard-hero {
+            background: linear-gradient(135deg, #113d2f 0%, #1a936f 55%, #2ec4b6 100%);
+            border-radius: 1.5rem;
+            overflow: hidden;
+            position: relative;
+        }
+
+        .dashboard-hero::after {
+            background: rgba(255, 255, 255, 0.08);
+            border-radius: 999px;
+            content: "";
+            height: 18rem;
+            position: absolute;
+            right: -4rem;
+            top: -6rem;
+            width: 18rem;
+        }
+
+        .metric-card,
+        .panel-card {
+            border: 0;
+            border-radius: 1.25rem;
+            box-shadow: 0 1rem 2.5rem rgba(17, 61, 47, 0.08);
+        }
+
+        .metric-icon {
+            align-items: center;
+            background: rgba(26, 147, 111, 0.12);
+            border-radius: 1rem;
+            color: #1a936f;
+            display: inline-flex;
+            font-size: 1.25rem;
+            height: 3rem;
+            justify-content: center;
+            width: 3rem;
+        }
+
+        .progress-thin {
+            height: 0.55rem;
+        }
+
+        .route-item + .route-item {
+            border-top: 1px solid #e9f3ee;
+        }
+
+        .badge-soft {
+            background: rgba(26, 147, 111, 0.12);
+            color: #146c54;
+        }
+    </style>
+</head>
+<body>
+    <nav class="navbar navbar-expand-lg navbar-dark bg-dark sticky-top shadow-sm">
+        <div class="container">
+            <a class="navbar-brand fw-bold" href="/">
+                <i class="bi bi-box-seam-fill me-2" style="color: #2d7a4f;"></i>Pro Rentals
+            </a>
+            <button class="navbar-toggler" type="button"
+                    data-bs-toggle="collapse" data-bs-target="#mainNav"
+                    aria-controls="mainNav" aria-expanded="false" aria-label="Toggle navigation">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+
+            <div class="collapse navbar-collapse" id="mainNav">
+                <ul class="navbar-nav me-auto mb-2 mb-lg-0">
+                    <li class="nav-item">
+                        <a class="nav-link" href="/">Home</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link active" aria-current="page" href="/P25/CarbonDashboardView">Carbon Dashboard</a>
+                    </li>
+                </ul>
+                <div class="d-flex gap-2">
+                    <a href="#" class="btn btn-outline-light btn-sm">
+                        <i class="bi bi-box-arrow-in-right me-1"></i>Login
+                    </a>
+                    <a href="#" class="btn btn-primary btn-sm">
+                        <i class="bi bi-person-plus me-1"></i>Register
+                    </a>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <section class="carbon-dashboard py-5">
+        <div class="container">
+            <div class="dashboard-hero text-white p-4 p-lg-5 mb-4">
+                <div class="row align-items-center gy-4 position-relative">
+                    <div class="col-lg-8">
+                        <span class="badge rounded-pill text-bg-light text-success fw-semibold mb-3">Module 3 · P2-5</span>
+                        <h1 class="display-6 fw-bold mb-3">Carbon Dashboard</h1>
+                        <p class="lead mb-4 text-white-50">
+                            Monitor fleet emissions, delivery efficiency, and reduction progress from one operational dashboard.
+                        </p>
+                        <div class="d-flex flex-wrap gap-2">
+                            <a href="#" class="btn btn-light btn-lg px-4">Export Report</a>
+                            <a href="#" class="btn btn-outline-light btn-lg px-4">View Route Details</a>
+                        </div>
+                    </div>
+                    <div class="col-lg-4">
+                        <div class="bg-white bg-opacity-10 rounded-4 p-4 border border-white border-opacity-25">
+                            <div class="text-uppercase small fw-semibold text-white-50 mb-2">This Month</div>
+                            <div class="display-5 fw-bold">18.4 tCO2e</div>
+                            <div class="small text-white-50 mb-3">8.7% lower than February baseline</div>
+                            <div class="progress progress-thin bg-white bg-opacity-25">
+                                <div class="progress-bar bg-warning" style="width: 68%"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="row g-4 mb-4">
+                <div class="col-md-6 col-xl-3">
+                    <div class="card metric-card h-100">
+                        <div class="card-body">
+                            <div class="d-flex justify-content-between align-items-start mb-3">
+                                <span class="metric-icon"><i class="bi bi-truck"></i></span>
+                                <span class="badge badge-soft rounded-pill">Live</span>
+                            </div>
+                            <div class="text-muted small text-uppercase fw-semibold mb-2">Active Deliveries</div>
+                            <div class="fs-2 fw-bold">42</div>
+                            <div class="text-success small">+6 compared with yesterday</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-6 col-xl-3">
+                    <div class="card metric-card h-100">
+                        <div class="card-body">
+                            <div class="d-flex justify-content-between align-items-start mb-3">
+                                <span class="metric-icon"><i class="bi bi-signpost-split"></i></span>
+                                <span class="badge text-bg-warning rounded-pill">Priority</span>
+                            </div>
+                            <div class="text-muted small text-uppercase fw-semibold mb-2">High-Impact Routes</div>
+                            <div class="fs-2 fw-bold">7</div>
+                            <div class="text-muted small">Need optimisation before next dispatch cycle</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-6 col-xl-3">
+                    <div class="card metric-card h-100">
+                        <div class="card-body">
+                            <div class="d-flex justify-content-between align-items-start mb-3">
+                                <span class="metric-icon"><i class="bi bi-recycle"></i></span>
+                                <span class="badge text-bg-success rounded-pill">Target</span>
+                            </div>
+                            <div class="text-muted small text-uppercase fw-semibold mb-2">Reduction Progress</div>
+                            <div class="fs-2 fw-bold">68%</div>
+                            <div class="text-muted small">Against quarterly emissions reduction target</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-6 col-xl-3">
+                    <div class="card metric-card h-100">
+                        <div class="card-body">
+                            <div class="d-flex justify-content-between align-items-start mb-3">
+                                <span class="metric-icon"><i class="bi bi-box-seam"></i></span>
+                                <span class="badge text-bg-info rounded-pill">Batch</span>
+                            </div>
+                            <div class="text-muted small text-uppercase fw-semibold mb-2">Avg CO2 per Order</div>
+                            <div class="fs-2 fw-bold">12.6 kg</div>
+                            <div class="text-danger small">+1.1 kg from last optimized batch</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="row g-4">
+                <div class="col-lg-7">
+                    <div class="card panel-card h-100">
+                        <div class="card-body p-4">
+                            <div class="d-flex justify-content-between align-items-center mb-4">
+                                <div>
+                                    <h2 class="h4 mb-1">Emission Breakdown</h2>
+                                    <p class="text-muted mb-0">Operational hotspots across the current reporting window.</p>
+                                </div>
+                                <span class="badge badge-soft rounded-pill px-3 py-2">Updated 5 min ago</span>
+                            </div>
+
+                            <div class="mb-4">
+                                <div class="d-flex justify-content-between mb-2">
+                                    <span>Transport emissions</span>
+                                    <strong>54%</strong>
+                                </div>
+                                <div class="progress progress-thin">
+                                    <div class="progress-bar bg-success" style="width: 54%"></div>
+                                </div>
+                            </div>
+                            <div class="mb-4">
+                                <div class="d-flex justify-content-between mb-2">
+                                    <span>Warehouse storage</span>
+                                    <strong>23%</strong>
+                                </div>
+                                <div class="progress progress-thin">
+                                    <div class="progress-bar bg-info" style="width: 23%"></div>
+                                </div>
+                            </div>
+                            <div class="mb-4">
+                                <div class="d-flex justify-content-between mb-2">
+                                    <span>Returns processing</span>
+                                    <strong>14%</strong>
+                                </div>
+                                <div class="progress progress-thin">
+                                    <div class="progress-bar bg-warning" style="width: 14%"></div>
+                                </div>
+                            </div>
+                            <div>
+                                <div class="d-flex justify-content-between mb-2">
+                                    <span>Packaging and handling</span>
+                                    <strong>9%</strong>
+                                </div>
+                                <div class="progress progress-thin">
+                                    <div class="progress-bar bg-secondary" style="width: 9%"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="col-lg-5">
+                    <div class="card panel-card h-100">
+                        <div class="card-body p-4">
+                            <div class="d-flex justify-content-between align-items-center mb-4">
+                                <div>
+                                    <h2 class="h4 mb-1">Route Watchlist</h2>
+                                    <p class="text-muted mb-0">Routes with the highest current footprint.</p>
+                                </div>
+                                <a href="#" class="text-decoration-none">Open all</a>
+                            </div>
+
+                            <div class="route-item py-3">
+                                <div class="d-flex justify-content-between align-items-start">
+                                    <div>
+                                        <div class="fw-semibold">SG Warehouse A to Tuas Hub</div>
+                                        <div class="text-muted small">12 orders · diesel truck · 41 km</div>
+                                    </div>
+                                    <span class="badge text-bg-warning rounded-pill">4.3 kg/order</span>
+                                </div>
+                            </div>
+                            <div class="route-item py-3">
+                                <div class="d-flex justify-content-between align-items-start">
+                                    <div>
+                                        <div class="fw-semibold">Jurong Hub to Marina Bay</div>
+                                        <div class="text-muted small">8 orders · van transfer · 26 km</div>
+                                    </div>
+                                    <span class="badge text-bg-danger rounded-pill">5.1 kg/order</span>
+                                </div>
+                            </div>
+                            <div class="route-item py-3">
+                                <div class="d-flex justify-content-between align-items-start">
+                                    <div>
+                                        <div class="fw-semibold">Returns Centre to Main Warehouse</div>
+                                        <div class="text-muted small">15 items · mixed return load · 33 km</div>
+                                    </div>
+                                    <span class="badge text-bg-warning rounded-pill">3.8 kg/order</span>
+                                </div>
+                            </div>
+
+                            <hr class="my-4" />
+
+                            <h3 class="h6 text-uppercase text-muted fw-semibold mb-3">Recommended Actions</h3>
+                            <ul class="list-group list-group-flush">
+                                <li class="list-group-item px-0">Consolidate Marina Bay dispatch into the 4 PM shared batch.</li>
+                                <li class="list-group-item px-0">Shift Tuas route to hybrid fleet availability tomorrow morning.</li>
+                                <li class="list-group-item px-0">Prioritise reusable packaging for returns with repeat customers.</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <footer class="bg-dark text-light pt-5 pb-3">
+        <div class="container">
+            <div class="row g-4">
+                <div class="col-lg-3 col-md-6">
+                    <h5 class="fw-bold mb-3">
+                        <i class="bi bi-box-seam-fill me-2" style="color: #2d7a4f;"></i>Pro Rentals
+                    </h5>
+                    <p class="text-secondary small">
+                        A unified order processing and inventory management platform for modern rental
+                        operations - fast, efficient, and sustainable.
+                    </p>
+                    <p class="text-secondary small mb-0">
+                        &copy; @DateTime.Now.Year Pro Rentals. All rights reserved.
+                    </p>
+                </div>
+
+                <div class="col-lg-3 col-md-6">
+                    <h6 class="text-uppercase text-secondary fw-semibold small mb-3" style="letter-spacing: 0.05em;">Quick Links</h6>
+                    <ul class="list-unstyled">
+                        <li class="mb-1"><a href="/" class="text-secondary text-decoration-none small">Home</a></li>
+                        <li class="mb-1"><a href="/P25/CarbonDashboardView" class="text-secondary text-decoration-none small">Carbon Dashboard</a></li>
+                        <li class="mb-1"><a href="#" class="text-secondary text-decoration-none small">Track My Order</a></li>
+                        <li class="mb-1"><a href="#" class="text-secondary text-decoration-none small">Contact Us</a></li>
+                        <li class="mb-1"><a href="/Home/Privacy" class="text-secondary text-decoration-none small">Privacy Policy</a></li>
+                    </ul>
+                </div>
+
+                <div class="col-lg-3 col-md-6">
+                    <h6 class="text-uppercase text-secondary fw-semibold small mb-3" style="letter-spacing: 0.05em;">Modules</h6>
+                    <ul class="list-unstyled">
+                        <li class="mb-1"><a href="#" class="text-secondary text-decoration-none small"><i class="bi bi-cart3 me-1"></i>Order Processing</a></li>
+                        <li class="mb-1"><a href="#" class="text-secondary text-decoration-none small"><i class="bi bi-boxes me-1"></i>Inventory Management</a></li>
+                        <li class="mb-1"><a href="/P25/CarbonDashboardView" class="text-secondary text-decoration-none small"><i class="bi bi-leaf me-1"></i>Carbon Footprint</a></li>
+                        <li class="mb-1"><a href="#" class="text-secondary text-decoration-none small"><i class="bi bi-bar-chart me-1"></i>Analytics &amp; Reports</a></li>
+                        <li class="mb-1"><a href="#" class="text-secondary text-decoration-none small"><i class="bi bi-shield-lock me-1"></i>Staff Portal</a></li>
+                    </ul>
+                </div>
+
+                <div class="col-lg-3 col-md-6">
+                    <h6 class="text-uppercase text-secondary fw-semibold small mb-3" style="letter-spacing: 0.05em;">Contact</h6>
+                    <ul class="list-unstyled">
+                        <li class="mb-2 text-secondary small">
+                            <i class="bi bi-geo-alt me-2"></i>123 Rental Avenue, Singapore 123456
+                        </li>
+                        <li class="mb-2 text-secondary small">
+                            <i class="bi bi-telephone me-2"></i>+65 6123 4567
+                        </li>
+                        <li class="mb-2 text-secondary small">
+                            <i class="bi bi-envelope me-2"></i>support@@prorentals.sg
+                        </li>
+                        <li class="mb-2 text-secondary small">
+                            <i class="bi bi-clock me-2"></i>Mon - Fri, 9 AM - 6 PM SGT
+                        </li>
+                    </ul>
+                </div>
+            </div>
+
+            <hr class="border-secondary mt-3 mb-3" />
+            <p class="text-center text-secondary small mb-0">
+                Built with Bootstrap 5.3.3 · Pro Rentals Order Processing System v1.0 · 2026
+            </p>
+        </div>
+    </footer>
+
+    <script src="~/lib/jquery/dist/jquery.min.js"></script>
+    <script src="~/lib/bootstrap/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>
