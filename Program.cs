@@ -170,6 +170,7 @@ builder.Services.AddScoped<IProductFootprintGateway, ProductFootprintGateway>();
 builder.Services.AddScoped<IStaffFootprintGateway, StaffFootprintGateway>();
 builder.Services.AddScoped<ProRental.Interfaces.Data.IRewardGateway, ProRental.Data.RewardGateway>();
 builder.Services.AddScoped<ProRental.Interfaces.Data.IOrderCarbonDataGateway, ProRental.Data.OrderCarbonDataGateway>();
+builder.Services.AddScoped<ProRental.Interfaces.Data.IOrderGateway, ProRental.Data.OrderGateway>();
 
 // Domain
 builder.Services.AddScoped<ICarbonChartService, CarbonChartControl>();

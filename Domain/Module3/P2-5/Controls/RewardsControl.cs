@@ -13,41 +13,37 @@ public class RewardsControl : IRewardsControl
 
     private readonly IOrderCarbonDataGateway  _carbonGateway;
     private readonly IRewardGateway           _rewardGateway;
+    private readonly IOrderGateway            _orderGateway;
     private readonly IProductFootprintService _productFootprintService;
 
     public RewardsControl(
         IOrderCarbonDataGateway  carbonGateway,
         IRewardGateway           rewardGateway,
+        IOrderGateway            orderGateway,
         IProductFootprintService productFootprintService)
     {
         _carbonGateway           = carbonGateway;
         _rewardGateway           = rewardGateway;
+        _orderGateway            = orderGateway;
         _productFootprintService = productFootprintService;
     }
 
-    /// <summary>
     /// Aggregates carbon from all four sources, classifies impact level,
     /// and persists the result. Idempotent — returns existing record if
     /// already calculated for this order.
-    /// </summary>
+    /// totalCarbon parameter is ignored if > 0 only when no other source
+    /// provides data — kept for backward compatibility.
     public Ordercarbondatum CreateOrderCarbonData(int orderId, double totalCarbon)
     {
         var existing = _carbonGateway.FindByOrderId(orderId);
         if (existing is not null) return existing;
 
-        // Retrieve each footprint component.
-        // Product carbon comes from Feature 1 via IProductFootprintService.
-        // Packaging, staff, building stubs return 0 until those features integrate.
-        double productCarbon    = _productFootprintService.CalculateProductFootprint(orderId);
-        double packagingCarbon  = 0.0; // Feature 3 integration point
-        double staffCarbon      = 0.0; // Feature 1 organisational integration point
-        double buildingCarbon   = 0.0; // Feature 1 organisational integration point
+        double productCarbon   = _productFootprintService.CalculateProductFootprint(orderId);
+        double packagingCarbon = 0.0; // Feature 3 integration point
+        double staffCarbon     = 0.0; // Feature 1 organisational integration point
+        double buildingCarbon  = 0.0; // Feature 1 organisational integration point
 
         double total = productCarbon + packagingCarbon + staffCarbon + buildingCarbon;
-
-        // Allow caller to pass in a total override (e.g. from manual entry in UI)
-        // If totalCarbon > 0 was passed, use that instead.
-        if (totalCarbon > 0) total = totalCarbon;
 
         var record = new Ordercarbondatum
         {
@@ -65,31 +61,25 @@ public class RewardsControl : IRewardsControl
         return record;
     }
 
-    /// <summary>
     /// Calculates an eco-score (0–100) based on total carbon.
     /// Returns -1 if no carbon data exists for the order.
-    /// </summary>
     public int CalculateEcoScore(int orderId)
     {
         var data = _carbonGateway.FindByOrderId(orderId);
         if (data is null) return -1;
 
-        // Linear scale: 0 g → 100 pts, 400 g → 0 pts
         const double maxCarbon = 400.0;
         int score = (int)Math.Round(Math.Max(0, (1.0 - data.Totalcarbon / maxCarbon) * 100));
         return Math.Clamp(score, 0, 100);
     }
 
-    /// <summary>
     /// Determines and persists a reward based on the order's impact level.
     /// Returns null if the order does not qualify.
-    /// </summary>
     public Customerreward? DetermineReward(int orderId)
     {
         var data = _carbonGateway.FindByOrderId(orderId);
         if (data is null) return null;
 
-        // Check if reward already issued for this carbon record
         var existing = _rewardGateway.FindByOrderCarbonDataId(data.Ordercarbondataid);
         if (existing is not null) return existing;
 
@@ -115,13 +105,14 @@ public class RewardsControl : IRewardsControl
         return reward;
     }
 
+    public List<Order> GetAllOrders()
+        => _orderGateway.FindAll();
+
     public List<Ordercarbondatum> GetAllCarbonRecords()
         => _carbonGateway.FindAll();
 
     public List<Customerreward> GetAllRewards()
         => _rewardGateway.FindAll();
-
-    // ── Helpers ───────────────────────────────────────────────────────────────
 
     private static string ClassifyImpact(double totalCarbon) => totalCarbon switch
     {

@@ -1,8 +1,13 @@
 @using ProRental.Domain.Entities
 @{
     ViewData["Title"] = "Rewards Dashboard";
+    var orders        = ViewBag.Orders as List<Order> ?? new();
     var carbonRecords = ViewBag.CarbonRecords as List<Ordercarbondatum> ?? new();
     var rewards       = ViewBag.Rewards as List<Customerreward> ?? new();
+
+    // Build lookup dictionaries for quick access in the table
+    var carbonByOrderId = carbonRecords.ToDictionary(c => c.Orderid);
+    var rewardByCarbon  = rewards.ToDictionary(r => r.Ordercarbondataid);
 }
 
 <div class="container mt-4">
@@ -23,10 +28,10 @@
             @score <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
         </div>
     }
-    @if (TempData["RewardMessage"] is string reward)
+    @if (TempData["RewardMessage"] is string rewardMsg)
     {
         <div class="alert alert-success alert-dismissible fade show">
-            @reward <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            @rewardMsg <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
         </div>
     }
 
@@ -35,8 +40,16 @@
         <div class="col-md-3">
             <div class="card text-center border-0 bg-light">
                 <div class="card-body">
-                    <div class="fs-2 fw-bold text-primary">@carbonRecords.Count</div>
-                    <div class="text-muted small">Orders Tracked</div>
+                    <div class="fs-2 fw-bold text-primary">@orders.Count</div>
+                    <div class="text-muted small">Total Orders</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card text-center border-0 bg-light">
+                <div class="card-body">
+                    <div class="fs-2 fw-bold text-info">@carbonRecords.Count</div>
+                    <div class="text-muted small">Carbon Calculated</div>
                 </div>
             </div>
         </div>
@@ -45,16 +58,6 @@
                 <div class="card-body">
                     <div class="fs-2 fw-bold text-success">@rewards.Count</div>
                     <div class="text-muted small">Rewards Issued</div>
-                </div>
-            </div>
-        </div>
-        <div class="col-md-3">
-            <div class="card text-center border-0 bg-light">
-                <div class="card-body">
-                    <div class="fs-2 fw-bold text-warning">
-                        @(carbonRecords.Any() ? carbonRecords.Average(c => c.Totalcarbon).ToString("F1") : "—")
-                    </div>
-                    <div class="text-muted small">Avg Carbon (g)</div>
                 </div>
             </div>
         </div>
@@ -70,43 +73,13 @@
         </div>
     </div>
 
-    @* ── Record carbon data form ──────────────────────────────────────────── *@
+    @* ── Orders table ─────────────────────────────────────────────────────── *@
     <div class="card mb-4">
-        <div class="card-header fw-semibold">Record Carbon Data for Order</div>
-        <div class="card-body">
-            <form asp-action="RecordCarbonData" asp-controller="RewardsDashboard" method="post">
-                @Html.AntiForgeryToken()
-                <div class="row g-3 align-items-end">
-                    <div class="col-md-3">
-                        <label class="form-label">Order ID</label>
-                        <input type="number" name="orderId" class="form-control" required min="1" />
-                    </div>
-                    <div class="col-md-3">
-                        <label class="form-label">Total Carbon (g CO₂e)</label>
-                        <input type="number" name="totalCarbon" class="form-control"
-                               step="0.01" required min="0" />
-                    </div>
-                    <div class="col-md-2">
-                        <button type="submit" class="btn btn-primary w-100">Record</button>
-                    </div>
-                </div>
-                <p class="text-muted small mt-2 mb-0">
-                    Thresholds: &lt;50g = Low 🟢 &nbsp;|&nbsp;
-                    50–100g = Moderate 🟡 &nbsp;|&nbsp;
-                    100–200g = High 🔴 &nbsp;|&nbsp;
-                    ≥200g = Very High ⚫
-                </p>
-            </form>
-        </div>
-    </div>
-
-    @* ── Orders carbon table ──────────────────────────────────────────────── *@
-    <div class="card mb-4">
-        <div class="card-header fw-semibold">Order Carbon Records</div>
+        <div class="card-header fw-semibold">Orders</div>
         <div class="card-body p-0">
-            @if (!carbonRecords.Any())
+            @if (!orders.Any())
             {
-                <p class="p-3 text-muted mb-0">No carbon data recorded yet.</p>
+                <p class="p-3 text-muted mb-0">No orders found.</p>
             }
             else
             {
@@ -114,51 +87,98 @@
                     <thead class="table-light">
                         <tr>
                             <th>Order ID</th>
-                            <th>Product (g)</th>
-                            <th>Packaging (g)</th>
-                            <th>Staff (g)</th>
-                            <th>Building (g)</th>
-                            <th>Total (g)</th>
+                            <th>Customer ID</th>
+                            <th>Order Date</th>
+                            <th>Total (g CO₂)</th>
                             <th>Impact</th>
-                            <th>Calculated At</th>
+                            <th>Reward</th>
                             <th>Actions</th>
                         </tr>
                     </thead>
                     <tbody>
-                        @foreach (var item in carbonRecords)
+                        @foreach (var order in orders)
                         {
+                            var hasCarbon = carbonByOrderId.TryGetValue(order.Orderid, out var carbon);
+                            var hasReward = hasCarbon && rewardByCarbon.TryGetValue(carbon!.Ordercarbondataid, out var rewardForOrder);
+
                             <tr>
-                                <td>@item.Orderid</td>
-                                <td>@item.Productcarbon.ToString("F2")</td>
-                                <td>@item.Packagingcarbon.ToString("F2")</td>
-                                <td>@item.Staffcarbon.ToString("F2")</td>
-                                <td>@item.Buildingcarbon.ToString("F2")</td>
-                                <td class="fw-semibold">@item.Totalcarbon.ToString("F2")</td>
+                                <td>@order.Orderid</td>
+                                <td>@order.Customerid</td>
+                                <td>@order.Orderdate.ToString("dd MMM yyyy")</td>
                                 <td>
-                                    <span class="badge bg-@item.GetImpactBadgeColour()">
-                                        @item.Impactlevel
-                                    </span>
+                                    @if (hasCarbon)
+                                    {
+                                        @carbon!.Totalcarbon.ToString("F2")
+                                    }
+                                    else
+                                    {
+                                        <span class="text-muted">—</span>
+                                    }
                                 </td>
-                                <td>@item.Calculatedat.ToString("dd MMM yyyy HH:mm")</td>
                                 <td>
-                                    <form asp-action="CalculateEcoScore"
-                                          asp-controller="RewardsDashboard"
-                                          method="post" class="d-inline">
-                                        @Html.AntiForgeryToken()
-                                        <input type="hidden" name="orderId" value="@item.Orderid" />
-                                        <button type="submit" class="btn btn-sm btn-outline-primary me-1">
-                                            Eco Score
-                                        </button>
-                                    </form>
-                                    <form asp-action="DetermineReward"
-                                          asp-controller="RewardsDashboard"
-                                          method="post" class="d-inline">
-                                        @Html.AntiForgeryToken()
-                                        <input type="hidden" name="orderId" value="@item.Orderid" />
-                                        <button type="submit" class="btn btn-sm btn-outline-success">
-                                            Issue Reward
-                                        </button>
-                                    </form>
+                                    @if (hasCarbon)
+                                    {
+                                        var colour = carbon!.GetImpactBadgeColour();
+                                        <span class="badge bg-@colour">@carbon.Impactlevel</span>
+                                    }
+                                    else
+                                    {
+                                        <span class="text-muted small">Not calculated</span>
+                                    }
+                                </td>
+                                <td>
+                                    @if (hasReward)
+                                    {
+                                        rewardByCarbon.TryGetValue(carbon!.Ordercarbondataid, out var r);
+                                        <span class="text-success fw-semibold">@r!.GetFormattedValue()</span>
+                                    }
+                                    else if (hasCarbon)
+                                    {
+                                        <span class="text-muted small">None</span>
+                                    }
+                                    else
+                                    {
+                                        <span class="text-muted small">—</span>
+                                    }
+                                </td>
+                                <td>
+                                    @if (!hasCarbon)
+                                    {
+                                        <form asp-action="ProcessOrder"
+                                              asp-controller="RewardsDashboard"
+                                              method="post" class="d-inline">
+                                            @Html.AntiForgeryToken()
+                                            <input type="hidden" name="orderId" value="@order.Orderid" />
+                                            <button type="submit" class="btn btn-sm btn-primary">
+                                                Calculate Carbon
+                                            </button>
+                                        </form>
+                                    }
+                                    else
+                                    {
+                                        <form asp-action="CalculateEcoScore"
+                                              asp-controller="RewardsDashboard"
+                                              method="post" class="d-inline">
+                                            @Html.AntiForgeryToken()
+                                            <input type="hidden" name="orderId" value="@order.Orderid" />
+                                            <button type="submit" class="btn btn-sm btn-outline-primary me-1">
+                                                Eco Score
+                                            </button>
+                                        </form>
+
+                                        @if (!hasReward)
+                                        {
+                                            <form asp-action="DetermineReward"
+                                                  asp-controller="RewardsDashboard"
+                                                  method="post" class="d-inline">
+                                                @Html.AntiForgeryToken()
+                                                <input type="hidden" name="orderId" value="@order.Orderid" />
+                                                <button type="submit" class="btn btn-sm btn-outline-success">
+                                                    Issue Reward
+                                                </button>
+                                            </form>
+                                        }
+                                    }
                                 </td>
                             </tr>
                         }
@@ -182,6 +202,7 @@
                     <thead class="table-light">
                         <tr>
                             <th>Reward ID</th>
+                            <th>Customer ID</th>
                             <th>Type</th>
                             <th>Value</th>
                             <th>Issued At</th>
@@ -192,6 +213,7 @@
                         {
                             <tr>
                                 <td>@r.Rewardid</td>
+                                <td>@r.Customerid</td>
                                 <td>@r.Rewardtype</td>
                                 <td class="fw-bold text-success">@r.GetFormattedValue()</td>
                                 <td>@r.Createdat.ToString("dd MMM yyyy HH:mm")</td>

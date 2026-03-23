@@ -13,18 +13,15 @@ public class RewardsDashboardController : Controller
     }
 
     // ── DisplayRewards ────────────────────────────────────────────────────────
-    // Main dashboard — shows all orders with carbon data + rewards history.
-
     public IActionResult DisplayRewards()
     {
+        ViewBag.Orders        = _rewardsControl.GetAllOrders();
         ViewBag.CarbonRecords = _rewardsControl.GetAllCarbonRecords();
         ViewBag.Rewards       = _rewardsControl.GetAllRewards();
         return View("~/Views/Module3/RewardsDashboard/Index.cshtml");
     }
 
     // ── CalculateEcoScore ─────────────────────────────────────────────────────
-    // Called from the dashboard table — calculates score for one order.
-
     [HttpPost]
     [ValidateAntiForgeryToken]
     public IActionResult CalculateEcoScore(int orderId)
@@ -32,15 +29,13 @@ public class RewardsDashboardController : Controller
         int score = _rewardsControl.CalculateEcoScore(orderId);
 
         TempData["ScoreMessage"] = score < 0
-            ? $"No carbon data found for Order #{orderId}. Record carbon data first."
+            ? $"No carbon data found for Order #{orderId}. Process the order first."
             : $"Order #{orderId} — Eco Score: {score}/100";
 
         return RedirectToAction(nameof(DisplayRewards));
     }
 
     // ── DetermineReward ───────────────────────────────────────────────────────
-    // Called from the dashboard table — issues reward if eligible.
-
     [HttpPost]
     [ValidateAntiForgeryToken]
     public IActionResult DetermineReward(int orderId)
@@ -54,15 +49,18 @@ public class RewardsDashboardController : Controller
         return RedirectToAction(nameof(DisplayRewards));
     }
 
-    // ── RecordCarbonData ──────────────────────────────────────────────────────
-    // Form submission — records carbon data for a new order.
-
+    // ── ProcessOrder ──────────────────────────────────────────────────────────
+    // Calculates carbon automatically from the system — no manual input needed
     [HttpPost]
     [ValidateAntiForgeryToken]
-    public IActionResult RecordCarbonData(int orderId, double totalCarbon)
+    public IActionResult ProcessOrder(int orderId)
     {
-        _rewardsControl.CreateOrderCarbonData(orderId, totalCarbon);
-        TempData["SuccessMessage"] = $"Carbon data recorded for Order #{orderId}.";
+        // totalCarbon = 0 means auto-calculate from footprint services
+        var carbonData = _rewardsControl.CreateOrderCarbonData(orderId, 0);
+
+        TempData["SuccessMessage"] = $"Order #{orderId} processed. " +
+            $"Total carbon: {carbonData.Totalcarbon:F2}g — Impact: {carbonData.Impactlevel}";
+
         return RedirectToAction(nameof(DisplayRewards));
     }
 }

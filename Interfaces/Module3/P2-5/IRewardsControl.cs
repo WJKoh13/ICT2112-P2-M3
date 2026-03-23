@@ -10,6 +10,7 @@ public interface IRewardsControl
     Customerreward? DetermineReward(int orderId);
 
     // ── Dashboard data retrieval ──────────────────────────────────────────────
+    List<Order> GetAllOrders();
     List<Ordercarbondatum> GetAllCarbonRecords();
     List<Customerreward> GetAllRewards();
 }

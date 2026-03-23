@@ -13,5 +13,5 @@ namespace ProRental.Domain.Controls;
 /// </summary>
 internal sealed class ProductFootprintServiceStub : IProductFootprintService
 {
-    public double CalculateProductFootprint(int orderId) => 0.0;
+    public double CalculateProductFootprint(int orderId) => 0;
 }
