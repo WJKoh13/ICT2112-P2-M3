@@ -2,7 +2,7 @@ using ProRental.Domain.Enums;
 
 namespace ProRental.Domain.Entities;
 
-public abstract partial class Transport
+public partial class Transport
 {
     private TransportMode? _transportMode;
     private TransportMode? TransportMode { get => _transportMode; set => _transportMode = value; }
