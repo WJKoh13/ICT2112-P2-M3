@@ -51,14 +51,4 @@ public partial class Ship
     {
         _maxVesselSize = maxVesselSize;
     }
-
-    public int ReadTransportId() => getTransportId();
-
-    public int ReadShipId() => getShipID();
-
-    public string ReadVesselType() => getVesselType();
-
-    public string ReadVesselNumber() => getVesselNumber();
-
-    public string ReadMaxVesselSize() => getMaxVesselSize();
 }
