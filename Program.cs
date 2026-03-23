@@ -177,8 +177,7 @@ builder.Services.AddScoped<ProRental.Interfaces.Data.IOrderGateway, ProRental.Da
 // Domain
 builder.Services.AddScoped<ICarbonChartService, CarbonChartControl>();
 builder.Services.AddScoped<ProRental.Interfaces.Domain.IRewardsControl, ProRental.Domain.Controls.RewardsControl>();
-builder.Services.AddScoped<ProRental.Interfaces.Domain.IProductFootprintService, ProRental.Domain.Controls.ProductFootprintServiceStub>();
-
+builder.Services.AddScoped<ProRental.Interfaces.Domain.IProductFootprintService, ProRental.Domain.Controls.ProductFootprintService>();
 // Presentation/Controllers
 
 
