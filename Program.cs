@@ -159,14 +159,22 @@ builder.Services.AddDbContext<AppDbContext>(options =>
 
 //Team P2-5
 // Data source
+builder.Services.AddScoped<ProRental.Data.Module3.P2_5.Interfaces.IPackagingMaterialGateway, ProRental.Data.Module3.P2_5.Gateways.PackagingMaterialGateway>();
+builder.Services.AddScoped<ProRental.Data.Module3.P2_5.Interfaces.IPackagingProfileGateway, ProRental.Data.Module3.P2_5.Gateways.PackagingProfileGateway>();
+builder.Services.AddScoped<ProRental.Data.Module3.P2_5.Interfaces.IPackagingConfigurationGateway, ProRental.Data.Module3.P2_5.Gateways.PackagingConfigurationGateway>();
 
 // Domain
+builder.Services.AddScoped<ProRental.Interfaces.Module3.P2_5.IPackagingProfilerControl, ProRental.Domain.Module3.P2_5.Controls.PackagingProfilerControl>();
+builder.Services.AddScoped<ProRental.Interfaces.Module3.P2_5.IPackagingFootprintControl, ProRental.Domain.Module3.P2_5.Controls.PackagingFootprintControl>();
 
 // Presentation/Controllers
 
 
 //Team P2-6
 // Data source
+
+// Module 2 order service — provides order + product data for packaging profile creation
+builder.Services.AddScoped<ProRental.Data.Module2.Interfaces.IOrderService, ProRental.Data.Module2.Gateways.OrderService>();
 
 // Domain
 
