@@ -2,8 +2,13 @@ using ProRental.Data.UnitOfWork;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Storage;
 using Npgsql;
+using ProRental.Data.Module3.P2_5.Gateways;
+using ProRental.Data.Module3.P2_5.Interfaces;
 using ProRental.Domain.Enums;
+using ProRental.Domain.Module3.P2_5.Controls;
 using ProRental.Domain.Entities;
+using ProRental.Interfaces.Data.Module3.P2_5;
+using ProRental.Interfaces.Module3.P2_5;
 
 // uncomment when ready to code
 // using ProRental.Data;
@@ -159,8 +164,13 @@ builder.Services.AddDbContext<AppDbContext>(options =>
 
 //Team P2-5
 // Data source
+builder.Services.AddScoped<IBuildingFootprintGateway, BuildingFootprintGateway>();
+builder.Services.AddScoped<ICatalogQuery, CatalogQuery>();
+builder.Services.AddScoped<IProductFootprintGateway, ProductFootprintGateway>();
+builder.Services.AddScoped<IStaffFootprintGateway, StaffFootprintGateway>();
 
 // Domain
+builder.Services.AddScoped<ICarbonChartService, CarbonChartControl>();
 
 // Presentation/Controllers
 
@@ -189,6 +199,13 @@ app.UseStaticFiles();
 app.UseRouting();
 
 app.UseAuthorization();
+
+app.MapControllers();
+
+app.MapControllerRoute(
+    name: "eco-catalog",
+    pattern: "catalog/eco",
+    defaults: new { controller = "CatalogPage", action = "Eco" });
 
 app.MapControllerRoute(
     name: "default",

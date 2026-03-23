@@ -1,9 +1,10 @@
-using ProRental.Domain.Entities;
+using ProRental.Domain.Module3.P2_5.Entities;
 
-namespace ProRental.Interfaces.Module3;
+namespace ProRental.Data.Module3.P2_5.Interfaces;
 
 public interface IBuildingFootprintGateway
 {
-    void Save(OrganizationalFootprintResult result);
-    OrganizationalFootprintResult FindByBuildingCarbonFootprintId(string buildingCarbonFootprintId);
+    List<ChartData> GetHourlyChartData();
+    List<ChartData> GetZoneGraphData();
+    List<ChartData> GetHotspotData(string groupBy, int top = 5);
 }

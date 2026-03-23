@@ -6,35 +6,35 @@ using System.Reflection;
 
 namespace ProRental.Data.Module3.P2_5.Gateways;
 
-public sealed class StaffFootprintGateway : IStaffFootprintGateway
+public sealed class ProductFootprintGateway : IProductFootprintGateway
 {
     private readonly AppDbContext _dbContext;
 
-    public StaffFootprintGateway(AppDbContext dbContext)
+    public ProductFootprintGateway(AppDbContext dbContext)
     {
         _dbContext = dbContext;
     }
 
     public List<ChartData> GetHourlyChartData()
     {
-        return _dbContext.Stafffootprints
+        return _dbContext.Productfootprints
             .AsEnumerable()
-            .GroupBy(GetTime)
+            .GroupBy(GetCalculatedAt)
             .Select(group => new ChartData(
                 group.Key.ToString("yyyy-MM-dd HH:mm"),
-                Math.Round(group.Sum(GetTotalStaffCo2), 2)))
+                Math.Round(group.Sum(GetTotalCo2), 2)))
             .OrderBy(chart => chart.Label)
             .ToList();
     }
 
-    public List<ChartData> GetStaffGraphData()
+    public List<ChartData> GetProductGraphData()
     {
-        return _dbContext.Stafffootprints
+        return _dbContext.Productfootprints
             .AsEnumerable()
-            .GroupBy(GetStaffId)
+            .GroupBy(GetProductId)
             .Select(group => new ChartData(
-                $"Staff {group.Key}",
-                Math.Round(group.Sum(GetTotalStaffCo2), 2)))
+                $"Product {group.Key}",
+                Math.Round(group.Sum(GetTotalCo2), 2)))
             .OrderByDescending(graph => graph.Value)
             .ThenBy(graph => graph.Label)
             .ToList();
@@ -42,31 +42,31 @@ public sealed class StaffFootprintGateway : IStaffFootprintGateway
 
     public List<ChartData> GetHotspotData(int top = 5)
     {
-        return _dbContext.Stafffootprints
+        return _dbContext.Productfootprints
             .AsEnumerable()
-            .GroupBy(GetStaffId)
+            .GroupBy(GetProductId)
             .Select(group => new ChartData(
-                $"Staff {group.Key}",
-                Math.Round(group.Average(GetTotalStaffCo2), 2)))
+                $"Product {group.Key}",
+                Math.Round(group.Average(GetTotalCo2), 2)))
             .OrderByDescending(hotspot => hotspot.Value)
             .ThenBy(hotspot => hotspot.Label)
             .Take(top)
             .ToList();
     }
 
-    private static DateTime GetTime(Stafffootprint footprint)
+    private static DateTime GetCalculatedAt(Productfootprint footprint)
     {
-        return ReadMember<DateTime>(footprint, "Time", "_time");
+        return ReadMember<DateTime>(footprint, "Calculatedat", "_calculatedat");
     }
 
-    private static int GetStaffId(Stafffootprint footprint)
+    private static int GetProductId(Productfootprint footprint)
     {
-        return ReadMember<int>(footprint, "Staffid", "_staffid");
+        return ReadMember<int>(footprint, "Productid", "_productid");
     }
 
-    private static double GetTotalStaffCo2(Stafffootprint footprint)
+    private static double GetTotalCo2(Productfootprint footprint)
     {
-        return ReadMember<double>(footprint, "Totalstaffco2", "_totalstaffco2");
+        return ReadMember<double>(footprint, "Totalco2", "_totalco2");
     }
 
     private static T ReadMember<T>(object source, string propertyName, string fieldName)
