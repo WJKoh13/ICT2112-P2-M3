@@ -24,6 +24,7 @@ await connection.OpenAsync();
 return commandName switch
 {
     "get-selected-option" => await GetSelectedOptionAsync(connection, orderId),
+    "get-option-count" => await GetOptionCountAsync(connection, orderId),
     "reset-order" => await ResetOrderAsync(connection, orderId),
     _ => UnknownCommand(commandName)
 };
@@ -53,6 +54,22 @@ static async Task<int> GetSelectedOptionAsync(NpgsqlConnection connection, int o
     return 0;
 }
 
+static async Task<int> GetOptionCountAsync(NpgsqlConnection connection, int orderId)
+{
+    await using var command = connection.CreateCommand();
+    command.CommandText =
+        """
+        select count(*)
+        from shipping_option
+        where order_id = @orderId
+        """;
+    command.Parameters.AddWithValue("orderId", orderId);
+
+    var count = await command.ExecuteScalarAsync();
+    Console.WriteLine(count is null or DBNull ? "0" : count);
+    return 0;
+}
+
 static async Task<int> ResetOrderAsync(NpgsqlConnection connection, int orderId)
 {
     // Reset both the selected checkout option and any generated Feature 1 shipping rows
@@ -70,6 +87,7 @@ static async Task<int> ResetOrderAsync(NpgsqlConnection connection, int orderId)
 
     if (routeIds.Count > 0)
     {
+        await DeleteRouteLegsAsync(connection, transaction, routeIds);
         await DeleteRoutesAsync(connection, transaction, routeIds);
     }
 
@@ -163,7 +181,24 @@ static async Task DeleteRoutesAsync(
     await command.ExecuteNonQueryAsync();
 }
 
+static async Task DeleteRouteLegsAsync(
+    NpgsqlConnection connection,
+    NpgsqlTransaction transaction,
+    IReadOnlyList<int> routeIds)
+{
+    await using var command = connection.CreateCommand();
+    command.Transaction = transaction;
+    command.CommandText =
+        """
+        delete from route_leg
+        where route_id = any(@routeIds)
+        """;
+    command.Parameters.AddWithValue("routeIds", routeIds.ToArray());
+
+    await command.ExecuteNonQueryAsync();
+}
+
 static void PrintUsage()
 {
-    Console.Error.WriteLine("Usage: dotnet run --project tests/Feature1ShippingOptionDbHarness -- <get-selected-option|reset-order> <orderId>");
+    Console.Error.WriteLine("Usage: dotnet run --project tests/Feature1ShippingOptionDbHarness -- <get-selected-option|get-option-count|reset-order> <orderId>");
 }

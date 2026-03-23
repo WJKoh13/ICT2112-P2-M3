@@ -1,4 +1,3 @@
-using ProRental.Domain.Module3.P2_1.Models;
 using ProRental.Models.Module3.P2_1;
 
 namespace ProRental.Interfaces.Module3.P2_1;
@@ -9,17 +8,11 @@ namespace ProRental.Interfaces.Module3.P2_1;
 /// </summary>
 public interface IShippingOptionService
 {
-    ShippingOptionCarbonInput GetRouteCarbonInput(int shippingOptionId);
-
-    Task<IReadOnlyList<ShippingOptionSummary>> GetShippingOptionsForOrderAsync(
+    Task<IReadOnlyList<ShippingPreferenceCard>> GetPreferenceChoicesForOrderAsync(
         int orderId,
         CancellationToken cancellationToken = default);
 
-    Task<IReadOnlyList<ShippingOptionSummary>> BuildOptionSetAsync(
-        OrderShippingContext context,
-        CancellationToken cancellationToken = default);
-
-    Task<ShippingSelectionResult> ApplyCustomerSelectionAsync(
-        SelectShippingOptionRequest request,
+    Task<ShippingSelectionResult> ConfirmPreferenceSelectionAsync(
+        SelectShippingPreferenceRequest request,
         CancellationToken cancellationToken = default);
 }

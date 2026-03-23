@@ -14,6 +14,9 @@ public partial class DeliveryRoute
     public bool? GetIsValid() => _isValid;
     public int? GetOriginHubId() => _originHubId;
     public int? GetDestinationHubId() => _destinationHubId;
+    public IReadOnlyList<RouteLeg> GetOrderedRouteLegs() => RouteLegs
+        .OrderBy(routeLeg => routeLeg.GetSequence() ?? int.MaxValue)
+        .ToArray();
 
     public void SetOriginAddress(string originAddress) => _originAddress = originAddress;
     public void SetDestinationAddress(string destinationAddress) => _destinationAddress = destinationAddress;

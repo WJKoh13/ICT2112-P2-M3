@@ -4,21 +4,21 @@ const { test, expect } = require('@playwright/test');
 
 // End-to-end browser coverage for the customer-facing Feature 1 checkout flow.
 const orderId = '12';
-const dbHarnessDllPath = path.resolve(
+const dbHarnessProjectPath = path.resolve(
   __dirname,
   '..',
   'Feature1ShippingOptionDbHarness',
-  'bin',
-  'Debug',
-  'net9.0',
-  'Feature1ShippingOptionDbHarness.dll'
+  'Feature1ShippingOptionDbHarness.csproj'
 );
 
 function runDbProbe(commandName, selectedOrderId) {
   return execFileSync(
     'dotnet',
     [
-      dbHarnessDllPath,
+      'run',
+      '--project',
+      dbHarnessProjectPath,
+      '--',
       commandName,
       selectedOrderId,
     ],
@@ -42,36 +42,30 @@ test.afterEach(() => {
   runDbProbe('reset-order', orderId);
 });
 
-test('customer can compare and select shipping options for seeded order 12', async ({ page }) => {
+test('customer can choose and confirm one shipping preference for seeded order 12', async ({ page }) => {
   // The test starts from a known seed state where checkout.option_id is empty.
   expect(runDbProbe('get-selected-option', orderId)).toBe('NULL');
+  expect(runDbProbe('get-option-count', orderId)).toBe('0');
 
   await page.goto('/');
   await page.getByLabel('Feature 1 Shipping Options').fill(orderId);
   await page.getByRole('button', { name: 'Open' }).click();
 
-  await expect(page.getByRole('heading', { name: 'Choose a shipping option' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Choose a shipping preference' })).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Fastest' })).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Cheapest' })).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Greenest' })).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Select option' })).toHaveCount(3);
+  await expect(page.getByRole('button', { name: 'Confirm preference' })).toHaveCount(3);
+  expect(runDbProbe('get-option-count', orderId)).toBe('0');
 
-  await page.getByRole('link', { name: 'Compare options' }).click();
+  await page.getByRole('button', { name: 'Confirm preference' }).first().click();
 
-  // Compare view should expose the same three generated options before selection.
-  await expect(page.getByRole('heading', { name: 'Compare shipping options' })).toBeVisible();
-  await expect(page.getByRole('row', { name: /FAST Fastest/i })).toBeVisible();
-  await expect(page.getByRole('row', { name: /CHEAP Cheapest/i })).toBeVisible();
-  await expect(page.getByRole('row', { name: /GREEN Greenest/i })).toBeVisible();
-
-  await page.goto(`/ShippingOptions/GetShippingOptions?orderId=${orderId}`);
-  await page.getByRole('button', { name: 'Select option' }).first().click();
-
-  await expect(page.getByRole('heading', { name: 'Shipping option confirmed' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Shipping preference confirmed' })).toBeVisible();
 
   const details = await page.locator('dd').allTextContents();
   const selectedOptionId = details[1].trim();
 
   // Confirm that the UI selection also changed the persisted checkout row.
   expect(runDbProbe('get-selected-option', orderId)).toBe(selectedOptionId);
+  expect(runDbProbe('get-option-count', orderId)).toBe('1');
 });

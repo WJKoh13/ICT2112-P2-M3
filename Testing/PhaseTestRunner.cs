@@ -13,6 +13,7 @@ using ProRental.Data.Module3.P2_1.Interfaces;
 using ProRental.Domain.Controls;
 using ProRental.Domain.Entities;
 using ProRental.Domain.Enums;
+using ProRental.Domain.Module3.P2_1.Mocks;
 using ProRental.Interfaces.Module3.P2_1;
 using ProRental.Models.Module3.P2_1;
 using System.Reflection;
@@ -238,9 +239,8 @@ internal static class Phase1Tests
     {
         var contract = typeof(IShippingOptionService);
 
-        AssertMethod(contract, "GetShippingOptionsForOrderAsync", typeof(Task<IReadOnlyList<ShippingOptionSummary>>), typeof(int), typeof(CancellationToken));
-        AssertMethod(contract, "BuildOptionSetAsync", typeof(Task<IReadOnlyList<ShippingOptionSummary>>), typeof(OrderShippingContext), typeof(CancellationToken));
-        AssertMethod(contract, "ApplyCustomerSelectionAsync", typeof(Task<ShippingSelectionResult>), typeof(SelectShippingOptionRequest), typeof(CancellationToken));
+        AssertMethod(contract, "GetPreferenceChoicesForOrderAsync", typeof(Task<IReadOnlyList<ShippingPreferenceCard>>), typeof(int), typeof(CancellationToken));
+        AssertMethod(contract, "ConfirmPreferenceSelectionAsync", typeof(Task<ShippingSelectionResult>), typeof(SelectShippingPreferenceRequest), typeof(CancellationToken));
     }
 
     private static void RankingContractsUseShippingOptionSummary()
@@ -276,11 +276,12 @@ internal static class Phase1Tests
         AssertMethod(mapper, "SaveChangesAsync", typeof(Task), typeof(CancellationToken));
 
         AssertMethod(orderService, "GetShippingContextAsync", typeof(Task<OrderShippingContext?>), typeof(int), typeof(CancellationToken));
-        AssertMethod(routingService, "CreateRouteAsync", typeof(Task<DeliveryRoute>), typeof(RoutingRequest), typeof(CancellationToken));
+        AssertMethod(routingService, "CreateMultiModalRoute", typeof(DeliveryRoute), typeof(string), typeof(string), typeof(List<TransportMode>));
         AssertMethod(transportCarbonService, "CalculateLegCarbon", typeof(double), typeof(int), typeof(double), typeof(double), typeof(double));
         AssertMethod(transportCarbonService, "CalculateRouteCarbon", typeof(double), typeof(IReadOnlyList<double>));
         AssertMethod(transportCarbonService, "CalculateLegCarbonSurcharge", typeof(double), typeof(int), typeof(double), typeof(double), typeof(double), typeof(TransportMode));
         AssertMethod(transportCarbonService, "CalculateTotalCarbonSurcharge", typeof(double), typeof(IReadOnlyList<double>));
+        AssertMethod(transportCarbonService, "CalculateRouteQuote", typeof(RouteQuoteResult), typeof(DeliveryRoute), typeof(int), typeof(double));
     }
 
     private static void AssertMethod(Type type, string name, Type returnType, params Type[] parameterTypes)
@@ -573,10 +574,9 @@ internal static class Phase4Tests
     [
         new("TransportCarbonManager calculates leg surcharge by transport type", TransportCarbonManagerCalculatesLegSurchargeByTransportType),
         new("TransportCarbonManager sums leg surcharges into route total", TransportCarbonManagerSumsLegSurcharges),
-        new("ShippingOptionManager builds and persists one option per preference", ShippingOptionManagerBuildsAndPersistsOptions),
-        new("ShippingOptionManager reuses persisted options before rebuilding", ShippingOptionManagerReusesExistingOptions),
-        new("ShippingOptionManager selection writes through checkout.option_id only", ShippingOptionManagerAppliesSelectionThroughRepository),
-        new("ShippingOptionManager rejects mismatched order selections", ShippingOptionManagerRejectsMismatchedSelection)
+        new("ShippingOptionManager returns preference cards without routing or carbon calls", ShippingOptionManagerReturnsPreferenceCardsWithoutRouting),
+        new("ShippingOptionManager confirms one preference with one route and one quote call", ShippingOptionManagerConfirmsPreferenceAndPersistsSingleOption),
+        new("ShippingOptionManager reuses an existing persisted option on reselection", ShippingOptionManagerReusesPersistedOptionOnReselection)
     ];
 
     private static void TransportCarbonManagerCalculatesLegSurchargeByTransportType()
@@ -607,97 +607,70 @@ internal static class Phase4Tests
         TestAssertions.AssertEqual(20.6d, total);
     }
 
-    private static void ShippingOptionManagerBuildsAndPersistsOptions()
+    private static void ShippingOptionManagerReturnsPreferenceCardsWithoutRouting()
     {
         var repository = new InMemoryShippingOptionMapper();
         var orderService = new StubOrderService(new OrderShippingContext(10, 20, 30, "Singapore", 5.5, 2));
         var routingService = new StubRoutingService();
         var transportCarbonService = new StubTransportCarbonService();
-        var pricingRuleGateway = new StubPricingRuleGateway();
-        var manager = new ShippingOptionManager(repository, orderService, routingService, transportCarbonService, pricingRuleGateway);
+        var manager = new ShippingOptionManager(repository, orderService, routingService, transportCarbonService);
 
-        var result = manager.BuildOptionSetAsync(orderService.Context).GetAwaiter().GetResult();
+        var result = manager.GetPreferenceChoicesForOrderAsync(orderService.Context.OrderId).GetAwaiter().GetResult();
 
         TestAssertions.AssertEqual(3, result.Count);
         TestAssertions.AssertSequence(
             new[] { PreferenceType.FAST, PreferenceType.CHEAP, PreferenceType.GREEN },
             result.Select(option => option.PreferenceType));
-        TestAssertions.AssertEqual(3, repository.StoredOptions.Count);
-        TestAssertions.AssertEqual(3, routingService.Requests.Count);
-        TestAssertions.AssertEqual(3, transportCarbonService.LegRequests.Count);
-        TestAssertions.AssertEqual(3, transportCarbonService.RouteRequests.Count);
-        TestAssertions.AssertEqual(3, transportCarbonService.LegSurchargeRequests.Count);
-        TestAssertions.AssertEqual(3, transportCarbonService.TotalSurchargeRequests.Count);
-        TestAssertions.AssertEqual(3, pricingRuleGateway.Requests.Count);
+        TestAssertions.AssertEqual(0, repository.StoredOptions.Count);
+        TestAssertions.AssertEqual(0, routingService.Requests.Count);
+        TestAssertions.AssertEqual(0, transportCarbonService.RouteQuoteRequests.Count);
     }
 
-    private static void ShippingOptionManagerReusesExistingOptions()
+    private static void ShippingOptionManagerConfirmsPreferenceAndPersistsSingleOption()
     {
         var repository = new InMemoryShippingOptionMapper();
-        repository.Seed(CreatePersistedOption(1, 10, PreferenceType.FAST, "Persisted Fast", 22m, 8.0, 2, TransportMode.PLANE));
-
+        repository.Order = CreateOrder(10, 30, 20);
         var orderService = new StubOrderService(new OrderShippingContext(10, 20, 30, "Singapore", 5.5, 2));
         var routingService = new StubRoutingService();
         var transportCarbonService = new StubTransportCarbonService();
-        var pricingRuleGateway = new StubPricingRuleGateway();
-        var manager = new ShippingOptionManager(repository, orderService, routingService, transportCarbonService, pricingRuleGateway);
+        var manager = new ShippingOptionManager(repository, orderService, routingService, transportCarbonService);
 
-        var result = manager.GetShippingOptionsForOrderAsync(10).GetAwaiter().GetResult();
+        var result = manager.ConfirmPreferenceSelectionAsync(
+            new SelectShippingPreferenceRequest(10, PreferenceType.GREEN)).GetAwaiter().GetResult();
 
-        TestAssertions.AssertEqual(1, result.Count);
-        TestAssertions.AssertEqual("Persisted Fast", result[0].DisplayName);
-        TestAssertions.AssertEqual(0, orderService.CallCount);
-        TestAssertions.AssertEqual(0, routingService.Requests.Count);
-        TestAssertions.AssertEqual(0, transportCarbonService.LegRequests.Count);
-        TestAssertions.AssertEqual(0, transportCarbonService.RouteRequests.Count);
-        TestAssertions.AssertEqual(0, transportCarbonService.LegSurchargeRequests.Count);
-        TestAssertions.AssertEqual(0, transportCarbonService.TotalSurchargeRequests.Count);
-        TestAssertions.AssertEqual(0, pricingRuleGateway.Requests.Count);
+        TestAssertions.AssertEqual(30, repository.LastSelectedCheckoutId);
+        TestAssertions.AssertEqual(1, repository.LastSelectedOptionId);
+        TestAssertions.AssertEqual(1, repository.StoredOptions.Count);
+        TestAssertions.AssertEqual(1, routingService.Requests.Count);
+        TestAssertions.AssertEqual(1, transportCarbonService.RouteQuoteRequests.Count);
+        TestAssertions.AssertEqual(PreferenceType.GREEN, result.PreferenceType);
+        TestAssertions.AssertEqual("TRAIN", result.TransportModeLabel);
     }
 
-    private static void ShippingOptionManagerAppliesSelectionThroughRepository()
+    private static void ShippingOptionManagerReusesPersistedOptionOnReselection()
     {
         var repository = new InMemoryShippingOptionMapper();
         repository.Order = CreateOrder(10, 30, 20);
-        repository.Seed(CreatePersistedOption(5, 10, PreferenceType.GREEN, "Greenest", 18m, 4.2, 4, TransportMode.TRAIN));
+        repository.Seed(CreatePersistedOption(5, 10, PreferenceType.CHEAP, "Cheapest", 12m, 3.2, 5, TransportMode.SHIP));
 
+        var routingService = new StubRoutingService();
+        var transportCarbonService = new StubTransportCarbonService();
         var manager = new ShippingOptionManager(
             repository,
             new StubOrderService(new OrderShippingContext(10, 20, 30, "Singapore", 5.5, 2)),
-            new StubRoutingService(),
-            new StubTransportCarbonService(),
-            new StubPricingRuleGateway());
+            routingService,
+            transportCarbonService);
 
-        var selection = manager.ApplyCustomerSelectionAsync(new SelectShippingOptionRequest(10, 5)).GetAwaiter().GetResult();
+        var selection = manager.ConfirmPreferenceSelectionAsync(
+            new SelectShippingPreferenceRequest(10, PreferenceType.FAST)).GetAwaiter().GetResult();
 
         TestAssertions.AssertEqual(30, repository.LastSelectedCheckoutId);
         TestAssertions.AssertEqual(5, repository.LastSelectedOptionId);
-        TestAssertions.AssertEqual(PreferenceType.GREEN, selection.PreferenceType);
-        TestAssertions.AssertEqual("TRAIN", selection.TransportModeLabel);
-    }
-
-    private static void ShippingOptionManagerRejectsMismatchedSelection()
-    {
-        var repository = new InMemoryShippingOptionMapper();
-        repository.Order = CreateOrder(10, 30, 20);
-        repository.Seed(CreatePersistedOption(7, 99, PreferenceType.CHEAP, "Wrong Order Option", 12m, 3.5, 5, TransportMode.TRUCK));
-
-        var manager = new ShippingOptionManager(
-            repository,
-            new StubOrderService(new OrderShippingContext(10, 20, 30, "Singapore", 5.5, 2)),
-            new StubRoutingService(),
-            new StubTransportCarbonService(),
-            new StubPricingRuleGateway());
-
-        try
-        {
-            _ = manager.ApplyCustomerSelectionAsync(new SelectShippingOptionRequest(10, 7)).GetAwaiter().GetResult();
-            throw new InvalidOperationException("Expected mismatched order selection to be rejected.");
-        }
-        catch (InvalidOperationException ex)
-        {
-            TestAssertions.AssertTrue(ex.Message.Contains("does not belong", StringComparison.Ordinal), ex.Message);
-        }
+        TestAssertions.AssertEqual(1, repository.StoredOptions.Count);
+        TestAssertions.AssertEqual(1, routingService.Requests.Count);
+        TestAssertions.AssertEqual(1, transportCarbonService.RouteQuoteRequests.Count);
+        TestAssertions.AssertEqual(PreferenceType.FAST, selection.PreferenceType);
+        TestAssertions.AssertEqual("PLANE", selection.TransportModeLabel);
     }
 
     private static ShippingOption CreatePersistedOption(
@@ -819,30 +792,44 @@ internal static class Phase4Tests
         }
     }
 
-    // Stub Feature 3 adapter that returns predictable routes for each preference.
+    // Stub Feature 3 adapter that returns one deterministic route for a selected preference.
     private sealed class StubRoutingService : IRoutingService
     {
-        public List<RoutingRequest> Requests { get; } = [];
+        public List<(string Origin, string Destination, IReadOnlyList<TransportMode> Modes)> Requests { get; } = [];
 
-        public Task<DeliveryRoute> CreateRouteAsync(RoutingRequest request, CancellationToken cancellationToken = default)
+        public DeliveryRoute CreateMultiModalRoute(string origin, string destination, List<TransportMode> modes)
         {
-            Requests.Add(request);
+            Requests.Add((origin, destination, modes.ToArray()));
             var route = new DeliveryRoute();
-            route.SetOriginAddress("Warehouse");
-            route.SetDestinationAddress(request.DestinationAddress);
-            route.SetTotalDistanceKm(10 + Requests.Count);
+            route.SetOriginAddress(origin);
+            route.SetDestinationAddress(destination);
             route.SetIsValid(true);
-            return Task.FromResult(route);
+            route.SetTotalDistanceKm(24d);
+
+            var primaryMode = modes.FirstOrDefault();
+            if (primaryMode != default)
+            {
+                var firstLeg = new RouteLeg();
+                firstLeg.ConfigureLeg(1, origin, $"{primaryMode} Hub", 16d, primaryMode, true, false);
+                route.RouteLegs.Add(firstLeg);
+            }
+
+            var lastLeg = new RouteLeg();
+            lastLeg.ConfigureLeg(2, "Delivery Hub", destination, 8d, TransportMode.TRUCK, false, true);
+            route.RouteLegs.Add(lastLeg);
+
+            return route;
         }
     }
 
-    // Stub Feature 2 adapter that exposes the incoming shared carbon-calculation contract.
+    // Stub Feature 2 adapter that exposes both the low-level carbon primitives and the route-level quote call.
     private sealed class StubTransportCarbonService : ITransportCarbonService
     {
         public List<(int Quantity, double WeightKg, double DistanceKm, double StorageCo2)> LegRequests { get; } = [];
         public List<IReadOnlyList<double>> RouteRequests { get; } = [];
         public List<(int Quantity, double WeightKg, double DistanceKm, double StorageCo2, TransportMode TransportMode)> LegSurchargeRequests { get; } = [];
         public List<IReadOnlyList<double>> TotalSurchargeRequests { get; } = [];
+        public List<(DeliveryRoute Route, int Quantity, double WeightKg)> RouteQuoteRequests { get; } = [];
 
         public double CalculateLegCarbon(int quantity, double weightKg, double distanceKm, double storageCo2)
         {
@@ -876,6 +863,12 @@ internal static class Phase4Tests
         {
             TotalSurchargeRequests.Add(legSurcharges.ToArray());
             return legSurcharges.Sum();
+        }
+
+        public RouteQuoteResult CalculateRouteQuote(DeliveryRoute route, int quantity, double weightKg)
+        {
+            RouteQuoteRequests.Add((route, quantity, weightKg));
+            return new RouteQuoteResult(18m + RouteQuoteRequests.Count, 4.2d + RouteQuoteRequests.Count);
         }
     }
 
@@ -930,59 +923,37 @@ internal static class Phase5Tests
 {
     public static IReadOnlyList<PhaseTest> All { get; } =
     [
-        new("GetShippingOptions returns the option list model and order id", GetShippingOptionsReturnsOptionList),
-        new("CompareOptions returns ranked option lists in ViewData", CompareOptionsReturnsRankedLists),
-        new("SelectShippingOption returns the confirmed selection result", SelectShippingOptionReturnsSelectionResult)
+        new("GetShippingOptions returns the preference card model and order id", GetShippingOptionsReturnsPreferenceCards),
+        new("SelectShippingPreference returns the confirmed selection result", SelectShippingPreferenceReturnsSelectionResult)
     ];
 
-    private static void GetShippingOptionsReturnsOptionList()
+    private static void GetShippingOptionsReturnsPreferenceCards()
     {
         var options = CreateControllerOptions();
         var service = new ControllerShippingOptionService(options, CreateSelectionResult());
-        var controller = new ShippingOptionsController(service, new ControllerRankingService());
+        var controller = new ShippingOptionsController(service);
 
         var result = controller.GetShippingOptions(42, CancellationToken.None).GetAwaiter().GetResult();
         var viewResult = AssertViewResult(result);
-        var model = AssertModel<IReadOnlyList<ShippingOptionSummary>>(viewResult);
+        var model = AssertModel<IReadOnlyList<ShippingPreferenceCard>>(viewResult);
 
         TestAssertions.AssertEqual(42, viewResult.ViewData["OrderId"]);
         TestAssertions.AssertEqual(3, model.Count);
         TestAssertions.AssertEqual(42, service.LastGetOrderId);
     }
 
-    private static void CompareOptionsReturnsRankedLists()
-    {
-        var options = CreateControllerOptions();
-        var service = new ControllerShippingOptionService(options, CreateSelectionResult());
-        var rankingService = new ControllerRankingService();
-        var controller = new ShippingOptionsController(service, rankingService);
-
-        var result = controller.CompareOptions(42, CancellationToken.None).GetAwaiter().GetResult();
-        var viewResult = AssertViewResult(result);
-        var model = AssertModel<IReadOnlyList<ShippingOptionSummary>>(viewResult);
-
-        TestAssertions.AssertEqual(42, viewResult.ViewData["OrderId"]);
-        TestAssertions.AssertEqual(3, model.Count);
-        TestAssertions.AssertTrue(viewResult.ViewData["SpeedRanked"] is IReadOnlyList<ShippingOptionSummary>, "Expected SpeedRanked view data.");
-        TestAssertions.AssertTrue(viewResult.ViewData["CostRanked"] is IReadOnlyList<ShippingOptionSummary>, "Expected CostRanked view data.");
-        TestAssertions.AssertTrue(viewResult.ViewData["CarbonRanked"] is IReadOnlyList<ShippingOptionSummary>, "Expected CarbonRanked view data.");
-        TestAssertions.AssertEqual(1, rankingService.SpeedCalls);
-        TestAssertions.AssertEqual(1, rankingService.CostCalls);
-        TestAssertions.AssertEqual(1, rankingService.CarbonCalls);
-    }
-
-    private static void SelectShippingOptionReturnsSelectionResult()
+    private static void SelectShippingPreferenceReturnsSelectionResult()
     {
         var expectedSelection = CreateSelectionResult();
         var service = new ControllerShippingOptionService(CreateControllerOptions(), expectedSelection);
-        var controller = new ShippingOptionsController(service, new ControllerRankingService());
+        var controller = new ShippingOptionsController(service);
 
-        var result = controller.SelectShippingOption(42, 7, CancellationToken.None).GetAwaiter().GetResult();
+        var result = controller.SelectShippingPreference(42, PreferenceType.GREEN, CancellationToken.None).GetAwaiter().GetResult();
         var viewResult = AssertViewResult(result);
         var model = AssertModel<ShippingSelectionResult>(viewResult);
 
         TestAssertions.AssertEqual(42, service.LastSelectionRequest?.OrderId);
-        TestAssertions.AssertEqual(7, service.LastSelectionRequest?.OptionId);
+        TestAssertions.AssertEqual(PreferenceType.GREEN, service.LastSelectionRequest?.PreferenceType);
         TestAssertions.AssertEqual(expectedSelection, model);
     }
 
@@ -999,11 +970,11 @@ internal static class Phase5Tests
             : throw new InvalidOperationException($"Expected model of type {typeof(T).Name}.");
     }
 
-    private static IReadOnlyList<ShippingOptionSummary> CreateControllerOptions() =>
+    private static IReadOnlyList<ShippingPreferenceCard> CreateControllerOptions() =>
     [
-        new ShippingOptionSummary(1, 42, PreferenceType.FAST, "Fastest", 25m, 11.2, 1, null, TransportMode.PLANE, "Plane"),
-        new ShippingOptionSummary(2, 42, PreferenceType.CHEAP, "Cheapest", 12m, 9.8, 5, null, TransportMode.SHIP, "Ship"),
-        new ShippingOptionSummary(3, 42, PreferenceType.GREEN, "Greenest", 18m, 4.4, 4, null, TransportMode.TRAIN, "Train")
+        new ShippingPreferenceCard(42, PreferenceType.FAST, "Fastest", "Fast profile", "PLANE + TRUCK"),
+        new ShippingPreferenceCard(42, PreferenceType.CHEAP, "Cheapest", "Cheap profile", "SHIP + TRUCK"),
+        new ShippingPreferenceCard(42, PreferenceType.GREEN, "Greenest", "Green profile", "TRAIN + TRUCK")
     ];
 
     private static ShippingSelectionResult CreateSelectionResult() =>
@@ -1012,11 +983,11 @@ internal static class Phase5Tests
     // Controller-facing service double that captures input parameters and returns fixed view models.
     private sealed class ControllerShippingOptionService : IShippingOptionService
     {
-        private readonly IReadOnlyList<ShippingOptionSummary> _options;
+        private readonly IReadOnlyList<ShippingPreferenceCard> _options;
         private readonly ShippingSelectionResult _selectionResult;
 
         public ControllerShippingOptionService(
-            IReadOnlyList<ShippingOptionSummary> options,
+            IReadOnlyList<ShippingPreferenceCard> options,
             ShippingSelectionResult selectionResult)
         {
             _options = options;
@@ -1024,60 +995,18 @@ internal static class Phase5Tests
         }
 
         public int? LastGetOrderId { get; private set; }
-        public SelectShippingOptionRequest? LastSelectionRequest { get; private set; }
+        public SelectShippingPreferenceRequest? LastSelectionRequest { get; private set; }
 
-        public ProRental.Domain.Module3.P2_1.Models.ShippingOptionCarbonInput GetRouteCarbonInput(int shippingOptionId)
-        {
-            return new ProRental.Domain.Module3.P2_1.Models.ShippingOptionCarbonInput
-            {
-                Quantity = 1,
-                ProductId = "TEST",
-                HubId = "HUB-TEST",
-                RouteLegs = []
-            };
-        }
-
-        public Task<IReadOnlyList<ShippingOptionSummary>> GetShippingOptionsForOrderAsync(int orderId, CancellationToken cancellationToken = default)
+        public Task<IReadOnlyList<ShippingPreferenceCard>> GetPreferenceChoicesForOrderAsync(int orderId, CancellationToken cancellationToken = default)
         {
             LastGetOrderId = orderId;
             return Task.FromResult(_options);
         }
 
-        public Task<IReadOnlyList<ShippingOptionSummary>> BuildOptionSetAsync(OrderShippingContext context, CancellationToken cancellationToken = default)
-        {
-            return Task.FromResult(_options);
-        }
-
-        public Task<ShippingSelectionResult> ApplyCustomerSelectionAsync(SelectShippingOptionRequest request, CancellationToken cancellationToken = default)
+        public Task<ShippingSelectionResult> ConfirmPreferenceSelectionAsync(SelectShippingPreferenceRequest request, CancellationToken cancellationToken = default)
         {
             LastSelectionRequest = request;
             return Task.FromResult(_selectionResult);
-        }
-    }
-
-    // Ranking double used to verify that CompareOptions delegates each ranking request exactly once.
-    private sealed class ControllerRankingService : IRankingService
-    {
-        public int SpeedCalls { get; private set; }
-        public int CostCalls { get; private set; }
-        public int CarbonCalls { get; private set; }
-
-        public IReadOnlyList<ShippingOptionSummary> RankBySpeed(IEnumerable<ShippingOptionSummary> options)
-        {
-            SpeedCalls++;
-            return options.OrderBy(option => option.DeliveryDays).ToArray();
-        }
-
-        public IReadOnlyList<ShippingOptionSummary> RankByCost(IEnumerable<ShippingOptionSummary> options)
-        {
-            CostCalls++;
-            return options.OrderBy(option => option.Cost).ToArray();
-        }
-
-        public IReadOnlyList<ShippingOptionSummary> RankByCarbon(IEnumerable<ShippingOptionSummary> options)
-        {
-            CarbonCalls++;
-            return options.OrderBy(option => option.CarbonFootprintKg).ToArray();
         }
     }
 }
@@ -1104,7 +1033,7 @@ internal static class Phase6Tests
 
         TestAssertions.AssertTrue(scopedProvider.GetService<IShippingOptionMapper>() is ShippingOptionMapper, "Expected shipping option mapper registration.");
         TestAssertions.AssertTrue(scopedProvider.GetService<IOrderService>() is ShippingOrderContextService, "Expected order context service registration.");
-        TestAssertions.AssertTrue(scopedProvider.GetService<IRoutingService>() is ShippingRoutingService, "Expected routing service registration.");
+        TestAssertions.AssertTrue(scopedProvider.GetService<IRoutingService>() is MockRoutingService, "Expected routing service registration.");
         TestAssertions.AssertTrue(scopedProvider.GetService<ITransportCarbonService>() is ProRental.Domain.Module3.P2_1.Controls.TransportCarbonManager, "Expected transport carbon service registration.");
         TestAssertions.AssertTrue(scopedProvider.GetService<IShippingOptionService>() is ShippingOptionManager, "Expected shipping option manager registration.");
         TestAssertions.AssertTrue(scopedProvider.GetService<IRankingService>() is RankingManager, "Expected ranking manager registration.");
@@ -1129,11 +1058,11 @@ internal static class Phase7Tests
 {
     public static IReadOnlyList<PhaseTest> All { get; } =
     [
-        new("Feature1 builds and persists three shipping options end-to-end", Feature1BuildsAndPersistsOptionsEndToEnd),
-        new("Feature1 selection writes checkout.option_id end-to-end", Feature1AppliesSelectionEndToEnd)
+        new("Feature1 shows three preference cards without persisting shipping options", Feature1ShowsPreferenceCardsWithoutPersistingOptions),
+        new("Feature1 selection writes one persisted option and checkout.option_id end-to-end", Feature1AppliesSelectionEndToEnd)
     ];
 
-    private static void Feature1BuildsAndPersistsOptionsEndToEnd()
+    private static void Feature1ShowsPreferenceCardsWithoutPersistingOptions()
     {
         using var context = Phase3Tests.CreateDbContext();
         using var transaction = context.Database.BeginTransaction();
@@ -1141,13 +1070,12 @@ internal static class Phase7Tests
         var snapshot = Phase3Tests.CreateOrderFixture(context);
         var manager = CreateManager(context);
 
-        var options = manager.GetShippingOptionsForOrderAsync(snapshot.OrderId).GetAwaiter().GetResult();
+        var options = manager.GetPreferenceChoicesForOrderAsync(snapshot.OrderId).GetAwaiter().GetResult();
         var persistedOptions = new ShippingOptionMapper(context).FindByOrderIdAsync(snapshot.OrderId).GetAwaiter().GetResult();
 
         TestAssertions.AssertEqual(3, options.Count);
         TestAssertions.AssertSequence(new[] { PreferenceType.FAST, PreferenceType.CHEAP, PreferenceType.GREEN }, options.Select(option => option.PreferenceType));
-        TestAssertions.AssertTrue(options.All(option => option.RouteId is > 0), "Expected all generated options to reference a persisted route.");
-        TestAssertions.AssertEqual(3, persistedOptions.Count);
+        TestAssertions.AssertEqual(0, persistedOptions.Count);
 
         transaction.Rollback();
     }
@@ -1159,20 +1087,20 @@ internal static class Phase7Tests
 
         var snapshot = Phase3Tests.CreateOrderFixture(context);
         var manager = CreateManager(context);
-        var options = manager.GetShippingOptionsForOrderAsync(snapshot.OrderId).GetAwaiter().GetResult();
-        var selectedOption = options.Single(option => option.PreferenceType == PreferenceType.GREEN);
 
-        var result = manager.ApplyCustomerSelectionAsync(
-            new SelectShippingOptionRequest(snapshot.OrderId, selectedOption.OptionId)).GetAwaiter().GetResult();
+        var result = manager.ConfirmPreferenceSelectionAsync(
+            new SelectShippingPreferenceRequest(snapshot.OrderId, PreferenceType.GREEN)).GetAwaiter().GetResult();
 
         context.ChangeTracker.Clear();
+        var persistedOptions = new ShippingOptionMapper(context).FindByOrderIdAsync(snapshot.OrderId).GetAwaiter().GetResult();
 
         var checkout = context.Checkouts
             .First(entity => EF.Property<int>(entity, "Checkoutid") == snapshot.CheckoutId);
 
-        TestAssertions.AssertEqual(selectedOption.OptionId, checkout.GetSelectionState().SelectedOptionId);
+        TestAssertions.AssertEqual(1, persistedOptions.Count);
+        TestAssertions.AssertEqual(result.OptionId, checkout.GetSelectionState().SelectedOptionId);
         TestAssertions.AssertEqual(PreferenceType.GREEN, result.PreferenceType);
-        TestAssertions.AssertEqual(selectedOption.OptionId, result.OptionId);
+        TestAssertions.AssertTrue(result.OptionId > 0, "Expected a persisted shipping option id.");
 
         transaction.Rollback();
     }
@@ -1182,9 +1110,8 @@ internal static class Phase7Tests
         return new ShippingOptionManager(
             new ShippingOptionMapper(context),
             new ShippingOrderContextService(context),
-            new ShippingRoutingService(context),
-            new ProRental.Domain.Module3.P2_1.Controls.TransportCarbonManager(new PricingRuleGateway(context)),
-            new PricingRuleGateway(context));
+            new MockRoutingService(context),
+            new ProRental.Domain.Module3.P2_1.Controls.TransportCarbonManager(new PricingRuleGateway(context)));
     }
 }
 

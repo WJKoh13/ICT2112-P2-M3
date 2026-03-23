@@ -3,6 +3,7 @@ using ProRental.Data.Module3.P2_1;
 using ProRental.Data.Module3.P2_1.Gateways;
 using ProRental.Data.Module3.P2_1.Interfaces;
 using ProRental.Domain.Controls;
+using ProRental.Domain.Module3.P2_1.Mocks;
 using ProRental.Interfaces.Module3.P2_1;
 
 namespace ProRental.Configuration.Module3.P2_1;
@@ -17,7 +18,8 @@ public static class Feature1ServiceCollectionExtensions
     {
         services.AddScoped<IShippingOptionMapper, ShippingOptionMapper>();
         services.AddScoped<IOrderService, ShippingOrderContextService>();
-        services.AddScoped<IRoutingService, ShippingRoutingService>();
+        services.AddScoped<IRoutingService, MockRoutingService>();
+        services.AddScoped<IShippingOptionCarbonInputService, MockShippingOptionCarbonInputService>();
         services.AddScoped<IPricingRuleGateway, PricingRuleGateway>();
         services.AddScoped<ITransportCarbonService, ProRental.Domain.Module3.P2_1.Controls.TransportCarbonManager>();
         services.AddScoped<IShippingOptionService, ShippingOptionManager>();

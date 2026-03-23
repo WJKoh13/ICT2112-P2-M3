@@ -2,6 +2,7 @@ using ProRental.Data.Module3.P2_1.Interfaces;
 using ProRental.Domain.Entities;
 using ProRental.Domain.Enums;
 using ProRental.Domain.Module3.P2_1.Controls;
+using ProRental.Models.Module3.P2_1;
 
 namespace ProRental.Testing;
 
@@ -14,7 +15,8 @@ internal static class TransportCarbonManagerTests
         new("TransportCarbonManager calculates ship surcharge", CalculateLegCarbonSurcharge_Ship_ReturnsExpectedValue),
         new("TransportCarbonManager calculates plane surcharge", CalculateLegCarbonSurcharge_Plane_ReturnsExpectedValue),
         new("TransportCarbonManager calculates train surcharge", CalculateLegCarbonSurcharge_Train_ReturnsExpectedValue),
-        new("TransportCarbonManager totals leg surcharges", CalculateTotalCarbonSurcharge_ReturnsExpectedValue)
+        new("TransportCarbonManager totals leg surcharges", CalculateTotalCarbonSurcharge_ReturnsExpectedValue),
+        new("TransportCarbonManager calculates a route-level quote", CalculateRouteQuote_ReturnsExpectedValue)
     ];
 
     private static void CalculateLegCarbon_ReturnsExpectedValue()
@@ -69,6 +71,27 @@ internal static class TransportCarbonManagerTests
         var result = manager.CalculateTotalCarbonSurcharge([5.15d, 3.09d, 12.36d, 4.12d]);
 
         TestAssertions.AssertTrue(Math.Abs(result - 24.72d) < 0.0000001d, $"Expected 24.72 but got {result}.");
+    }
+
+    private static void CalculateRouteQuote_ReturnsExpectedValue()
+    {
+        var manager = CreateManager();
+        var route = new DeliveryRoute();
+        route.SetOriginAddress("Warehouse");
+        route.SetDestinationAddress("Customer");
+        route.SetIsValid(true);
+
+        var planeLeg = new RouteLeg();
+        planeLeg.ConfigureLeg(1, "Warehouse", "Airport Hub", 18d, TransportMode.PLANE, true, false);
+        route.RouteLegs.Add(planeLeg);
+
+        var truckLeg = new RouteLeg();
+        truckLeg.ConfigureLeg(2, "Airport Hub", "Customer", 8d, TransportMode.TRUCK, false, true);
+        route.RouteLegs.Add(truckLeg);
+
+        var quote = manager.CalculateRouteQuote(route, 1, 2d);
+
+        TestAssertions.AssertEqual(new RouteQuoteResult(93.12m, 52d), quote);
     }
 
     private static TransportCarbonManager CreateManager()

@@ -1,6 +1,8 @@
 using ProRental.Data.Module3.P2_1.Interfaces;
+using ProRental.Domain.Entities;
 using ProRental.Domain.Enums;
 using ProRental.Interfaces.Module3.P2_1;
+using ProRental.Models.Module3.P2_1;
 
 namespace ProRental.Domain.Module3.P2_1.Controls;
 
@@ -47,4 +49,46 @@ public sealed class TransportCarbonManager : ITransportCarbonService
     {
         return legSurcharges.Sum();
     }
+
+    public RouteQuoteResult CalculateRouteQuote(DeliveryRoute route, int quantity, double weightKg)
+    {
+        ArgumentNullException.ThrowIfNull(route);
+
+        if (route.GetIsValid() is false)
+        {
+            throw new InvalidOperationException("A quote cannot be calculated for an invalid route.");
+        }
+
+        var routeLegs = route.GetOrderedRouteLegs();
+        var quoteLegs = routeLegs.Count > 0
+            ? routeLegs.Select(routeLeg => new QuoteLeg(
+                routeLeg.GetDistanceKm() ?? 0d,
+                routeLeg.GetTransportMode() ?? TransportMode.TRUCK))
+            : [new QuoteLeg(route.GetTotalDistanceKm() ?? 0d, TransportMode.TRUCK)];
+
+        var legCarbonBases = new List<double>(quoteLegs.Count());
+        var pricedLegCarbonValues = new List<double>(quoteLegs.Count());
+        var legSurcharges = new List<double>(quoteLegs.Count());
+
+        foreach (var leg in quoteLegs)
+        {
+            var legCarbonBase = CalculateLegCarbon(quantity, weightKg, leg.DistanceKm, storageCo2: 0d);
+            var pricingRule = _pricingRuleGateway.FindByTransportMode(leg.TransportMode)
+                .FirstOrDefault(rule => rule.ReadIsActive());
+            var baseRate = (double)(pricingRule?.ReadBaseRatePerKm() ?? 0m);
+
+            legCarbonBases.Add(legCarbonBase);
+            pricedLegCarbonValues.Add(legCarbonBase * baseRate);
+            legSurcharges.Add(CalculateLegCarbonSurcharge(quantity, weightKg, leg.DistanceKm, 0d, leg.TransportMode));
+        }
+
+        var totalCarbonKg = Math.Round(CalculateRouteCarbon(legCarbonBases), 2, MidpointRounding.AwayFromZero);
+        var baseCost = CalculateRouteCarbon(pricedLegCarbonValues);
+        var surchargeCost = CalculateTotalCarbonSurcharge(legSurcharges);
+        var totalCost = decimal.Round((decimal)(baseCost + surchargeCost), 2, MidpointRounding.AwayFromZero);
+
+        return new RouteQuoteResult(totalCost, totalCarbonKg);
+    }
+
+    private sealed record QuoteLeg(double DistanceKm, TransportMode TransportMode);
 }

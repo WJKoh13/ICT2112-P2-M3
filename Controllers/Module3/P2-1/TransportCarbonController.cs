@@ -8,20 +8,20 @@ namespace ProRental.Controllers.Module3.P2_1;
 public class TransportCarbonController : Controller
 {
     private readonly ITransportCarbonService _transportCarbonService;
-    private readonly IShippingOptionService _shippingOptionService;
+    private readonly IShippingOptionCarbonInputService _shippingOptionCarbonInputService;
     private readonly IHubCarbonService _hubCarbonService;
     private readonly IRouteDistanceCalculator _routeDistanceCalculator;
     private readonly IPricingRuleGateway _pricingRuleGateway;
 
     public TransportCarbonController(
         ITransportCarbonService transportCarbonService,
-        IShippingOptionService shippingOptionService,
+        IShippingOptionCarbonInputService shippingOptionCarbonInputService,
         IHubCarbonService hubCarbonService,
         IRouteDistanceCalculator routeDistanceCalculator,
         IPricingRuleGateway pricingRuleGateway)
     {
         _transportCarbonService = transportCarbonService;
-        _shippingOptionService = shippingOptionService;
+        _shippingOptionCarbonInputService = shippingOptionCarbonInputService;
         _hubCarbonService = hubCarbonService;
         _routeDistanceCalculator = routeDistanceCalculator;
         _pricingRuleGateway = pricingRuleGateway;
@@ -38,7 +38,7 @@ public class TransportCarbonController : Controller
     {
         try
         {
-            var carbonInput = _shippingOptionService.GetRouteCarbonInput(shippingOptionId);
+            var carbonInput = _shippingOptionCarbonInputService.GetRouteCarbonInput(shippingOptionId);
             var storageCo2 = _hubCarbonService.CalculateProductStorageCarbon(carbonInput.ProductId, carbonInput.HubId);
             var legCalculations = carbonInput.RouteLegs.Select(routeLeg =>
             {
