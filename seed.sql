@@ -1,7 +1,7 @@
 -- Clear tables and resetting the Identity counters 
 TRUNCATE 
     Category, "User", TransactionLog, Supplier, PurchaseOrder, 
-    transportation_hub, transport, pricing_rule
+    transportation_hub, transport, pricing_rule,
     product_return, Analytics, PackagingMaterial,
     "transaction", "Order", Checkout, Cart, CartItem,
     Session, Payment, Deposit, replenishmentrequest, LoanList, ReturnRequest, ClearanceBatch 
