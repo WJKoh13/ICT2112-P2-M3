@@ -1,6 +1,8 @@
 @model ProRental.Domain.Module3.P2_1.Controls.CarbonReport
 @{
-    ViewData["Title"] = $"Carbon Report — Return #{Model.ReturnRequestId}";
+    ViewData["Title"] = Model.ReturnRequestId.HasValue
+        ? $"Carbon Report — Return #{Model.ReturnRequestId}"
+        : "Carbon Report — All Returns";
 }
 
 <!-- Hero banner -->
@@ -12,7 +14,13 @@
                 <span class="opacity-75 small text-uppercase fw-semibold">Module 3 · Return Carbon Tracker</span>
             </div>
             <h2 class="fw-bold mb-1">Carbon Lifecycle Report</h2>
-            <p class="mb-0 opacity-75">Return Request <strong>#@Model.ReturnRequestId</strong> · @Model.Stages.Count stage(s) tracked</p>
+            <p class="mb-0 opacity-75">
+                @if (Model.ReturnRequestId.HasValue)
+                {
+                    <span>Return Request <strong>#@Model.ReturnRequestId</strong> · </span>
+                }
+                @Model.Stages.Count stage(s) tracked
+            </p>
         </div>
         @if (Model.HasHighCarbonStages)
         {
@@ -81,6 +89,22 @@
             </div>
         </div>
     </div>
+</div>
+
+<!-- Return ID filter -->
+<div class="d-flex align-items-center gap-2 mb-3">
+    <span class="text-muted small fw-semibold">Filter by Return ID:</span>
+    <a asp-controller="ReturnStage" asp-action="StageBreakdown"
+       class="btn btn-sm @(!Model.ReturnRequestId.HasValue ? "btn-dark" : "btn-outline-secondary")">
+        All
+    </a>
+    @foreach (var id in Model.AvailableReturnIds)
+    {
+        <a asp-controller="ReturnStage" asp-action="StageBreakdown" asp-route-returnRequestId="@id"
+           class="btn btn-sm @(Model.ReturnRequestId == id ? "btn-dark" : "btn-outline-secondary")">
+            #@id
+        </a>
+    }
 </div>
 
 <!-- Stage breakdown table -->

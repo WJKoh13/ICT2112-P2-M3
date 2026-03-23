@@ -20,11 +20,12 @@ public record StageCarbonBreakdown(
 }
 
 public record CarbonReport(
-    int ReturnRequestId,
+    int? ReturnRequestId,
     List<StageCarbonBreakdown> Stages,
     double TotalCarbonKg,
     decimal TotalSurcharge,
-    List<StageCarbonBreakdown> HighCarbonStages
+    List<StageCarbonBreakdown> HighCarbonStages,
+    List<int> AvailableReturnIds
 )
 {
     public bool HasHighCarbonStages => HighCarbonStages.Count > 0;
@@ -55,9 +56,51 @@ public class ReturnCarbonReportService
 
     public CarbonReport GetCarbonReport(int returnRequestId)
     {
-        var stages = _gateway.FindByReturnId(returnRequestId);
+        var allStages = _gateway.FindAll();
+        var availableIds = allStages.Select(s => s.GetReturnId()).Distinct().OrderBy(id => id).ToList();
 
-        var breakdowns = stages.Select(stage =>
+        var stages = _gateway.FindByReturnId(returnRequestId);
+        var breakdowns = BuildBreakdowns(stages);
+
+        double totalCarbonKg = breakdowns.Sum(b => b.TotalCarbon);
+        decimal totalSurcharge = _surchargeService.CalculateStageSurcharge(returnRequestId);
+        var highCarbonStages = breakdowns.Where(b => b.IsHighCarbon).ToList();
+
+        return new CarbonReport(
+            ReturnRequestId: returnRequestId,
+            Stages: breakdowns,
+            TotalCarbonKg: totalCarbonKg,
+            TotalSurcharge: totalSurcharge,
+            HighCarbonStages: highCarbonStages,
+            AvailableReturnIds: availableIds
+        );
+    }
+
+    public CarbonReport GetAllCarbonReport()
+    {
+        var stages = _gateway.FindAll();
+        var availableIds = stages.Select(s => s.GetReturnId()).Distinct().OrderBy(id => id).ToList();
+        var breakdowns = BuildBreakdowns(stages);
+
+        double totalCarbonKg = breakdowns.Sum(b => b.TotalCarbon);
+        decimal totalSurcharge = stages
+            .GroupBy(s => s.GetReturnId())
+            .Sum(g => _surchargeService.CalculateStageSurcharge(g.Key));
+        var highCarbonStages = breakdowns.Where(b => b.IsHighCarbon).ToList();
+
+        return new CarbonReport(
+            ReturnRequestId: null,
+            Stages: breakdowns,
+            TotalCarbonKg: totalCarbonKg,
+            TotalSurcharge: totalSurcharge,
+            HighCarbonStages: highCarbonStages,
+            AvailableReturnIds: availableIds
+        );
+    }
+
+    private List<StageCarbonBreakdown> BuildBreakdowns(List<ProRental.Domain.Entities.ReturnStage> stages)
+    {
+        return stages.Select(stage =>
         {
             int stageId = stage.GetStageId();
             double energy = _calculator.CalculateEnergyCarbon(stageId);
@@ -81,17 +124,5 @@ public class ReturnCarbonReportService
                 IsHighCarbon: total >= HighCarbonThresholdKg
             );
         }).ToList();
-
-        double totalCarbonKg = breakdowns.Sum(b => b.TotalCarbon);
-        decimal totalSurcharge = _surchargeService.CalculateStageSurcharge(returnRequestId);
-        var highCarbonStages = breakdowns.Where(b => b.IsHighCarbon).ToList();
-
-        return new CarbonReport(
-            ReturnRequestId: returnRequestId,
-            Stages: breakdowns,
-            TotalCarbonKg: totalCarbonKg,
-            TotalSurcharge: totalSurcharge,
-            HighCarbonStages: highCarbonStages
-        );
     }
 }

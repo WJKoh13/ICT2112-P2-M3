@@ -18,10 +18,13 @@ public class ReturnStageController : Controller
         _reportService = reportService;
     }
 
+    // GET: /ReturnStage/StageBreakdown
     // GET: /ReturnStage/StageBreakdown?returnRequestId=1
-    public IActionResult StageBreakdown(int returnRequestId)
+    public IActionResult StageBreakdown(int? returnRequestId)
     {
-        var report = _reportService.GetCarbonReport(returnRequestId);
+        var report = returnRequestId.HasValue
+            ? _reportService.GetCarbonReport(returnRequestId.Value)
+            : _reportService.GetAllCarbonReport();
         return View("~/Views/Module3/P2-1/StageBreakdown.cshtml", report);
     }
 

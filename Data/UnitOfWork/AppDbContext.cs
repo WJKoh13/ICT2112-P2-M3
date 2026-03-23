@@ -2319,6 +2319,10 @@ public partial class AppDbContext : DbContext
             entity.Property("WaterLitres")
                 .HasField("_waterLitres")
                 .UsePropertyAccessMode(PropertyAccessMode.Field).HasColumnName("water_litres");
+            entity.Property("StageType")
+                .HasField("_stageType")
+                .UsePropertyAccessMode(PropertyAccessMode.Field)
+                .HasColumnName("stage_type");
 
             entity.HasOne(d => d.Return).WithMany(p => p.ReturnStages)
                 .HasForeignKey("ReturnId")
