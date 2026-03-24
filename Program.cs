@@ -14,11 +14,11 @@ using ProRental.Interfaces.Module2.P2_3;
 using ProRental.Interfaces.Module3.P2_5;
 
 // uncomment when ready to code
-// using ProRental.Data;
-// using ProRental.Domain.Controls;
+using ProRental.Data;
+using ProRental.Domain.Controls;
 // using ProRental.Domain.Entities;
-// using ProRental.Interfaces.Domain;
-// using ProRental.Interfaces.Data;
+using ProRental.Interfaces.Domain;
+using ProRental.Interfaces.Data;
 // using ProRental.Controllers;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -171,10 +171,15 @@ builder.Services.AddScoped<ICatalogGateway, CatalogGateway>();
 builder.Services.AddScoped<IProductCatalogGateway, ProductCatalogGateway>();
 builder.Services.AddScoped<IProductFootprintGateway, ProductFootprintGateway>();
 builder.Services.AddScoped<IStaffFootprintGateway, StaffFootprintGateway>();
+builder.Services.AddScoped<IOrderCarbonDataGateway, OrderCarbonDataGateway>();
+builder.Services.AddScoped<IRewardGateway, RewardGateway>();
+builder.Services.AddScoped<IOrderGateway, OrderGateway>();
 
 // Domain
 builder.Services.AddScoped<ICarbonChartService, CarbonChartControl>();
 builder.Services.AddScoped<IProductFootprintCalculatorService, ProductFootprintCalculatorControl>();
+builder.Services.AddScoped<IProductFootprintService, ProductFootprintService>();
+builder.Services.AddScoped<IRewardsControl, RewardsControl>();
 
 // Presentation/Controllers
 
