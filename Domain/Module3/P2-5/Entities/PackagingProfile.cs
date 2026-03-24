@@ -1,91 +1,52 @@
-namespace ProRental.Domain.Module3.P2_5;
+using Microsoft.EntityFrameworkCore;
 
-public class PackagingProfile
+namespace ProRental.Domain.Entities;
+
+public partial class Packagingprofile
 {
-    private string _profileId = null!;
-    private string _orderId = null!;
-    private float _volume;
-    private string _fragilityLevel = null!;
-
-    public string GetProfileId() => _profileId;
-    public void SetProfileId(string profileId) => _profileId = profileId;
-
-    public int GetOrderId() => int.TryParse(_orderId, out var id) ? id : 0;
-    public void SetOrderId(string orderId) => _orderId = orderId;
-
-    public float GetVolume() => _volume;
-    public void SetVolume(float volume) => _volume = volume;
-
-    public string GetFragilityLevel() => _fragilityLevel;
-    public void SetFragilityLevel(string level) => _fragilityLevel = level;
-
-    public PackagingMaterial DeterminePrimaryPackaging()
+    public Packagingmaterial? DeterminePrimaryPackaging(string? fragilityLevel, List<Packagingmaterial> candidateMaterials)
     {
-        var material = new PackagingMaterial();
-        var level = _fragilityLevel?.ToLower() ?? "low";
+        if (candidateMaterials == null || !candidateMaterials.Any())
+            return null;
 
-        if (level == "high")
-        {
-            material.SetMaterialId("primary-foam");
-            material.SetName("Foam Padding");
-            material.SetMaterialType("Foam");
-            material.SetRecyclable(false);
-            material.SetReusable(false);
-        }
-        else if (level == "medium")
-        {
-            material.SetMaterialId("primary-bubble");
-            material.SetName("Bubble Wrap");
-            material.SetMaterialType("Plastic");
-            material.SetRecyclable(false);
-            material.SetReusable(true);
-        }
-        else
-        {
-            material.SetMaterialId("primary-paper");
-            material.SetName("Kraft Paper");
-            material.SetMaterialType("Paper");
-            material.SetRecyclable(true);
-            material.SetReusable(false);
-        }
+        var fragility = fragilityLevel?.ToLowerInvariant() ?? "low";
 
-        return material;
+        if (fragility.Contains("high"))
+            return candidateMaterials.FirstOrDefault(m => EF.Property<string?>(m, "Type")?.Equals("cushion", StringComparison.OrdinalIgnoreCase) == true)
+                ?? candidateMaterials.First();
+
+        if (fragility.Contains("medium"))
+            return candidateMaterials.FirstOrDefault(m => EF.Property<string?>(m, "Type")?.Equals("bubble", StringComparison.OrdinalIgnoreCase) == true)
+                ?? candidateMaterials.First();
+
+        return candidateMaterials.FirstOrDefault(m => EF.Property<string?>(m, "Type")?.Equals("box", StringComparison.OrdinalIgnoreCase) == true)
+            ?? candidateMaterials.First();
     }
     
-    public List<PackagingMaterial> DetermineSecondaryPackaging()
+    public List<Packagingmaterial> DetermineSecondaryPackaging(double volume, List<Packagingmaterial> candidateMaterials)
     {
-        var materials = new List<PackagingMaterial>();
+        if (candidateMaterials == null || !candidateMaterials.Any())
+            return new List<Packagingmaterial>();
 
-        var box = new PackagingMaterial();
-        box.SetMaterialId("secondary-box");
-        box.SetName("Cardboard Box");
-        box.SetMaterialType("Cardboard");
-        box.SetRecyclable(true);
-        box.SetReusable(false);
-        materials.Add(box);
+        var target = volume > 3.0 ? 3 : 2;
+        target = Math.Min(target, candidateMaterials.Count);
+        
+        var ordered = candidateMaterials
+            .OrderBy(m => {
+                var t = EF.Property<string?>(m, "Type")?.ToLowerInvariant() ?? "";
+                return t switch
+                {
+                    "plastic" => 1,
+                    "fabric" => 2,
+                    "paper" => 3,
+                    "foam" => 4,
+                    "chemical" => 5,
+                    _ => 6
+                };
+            })
+            .ThenBy(m => EF.Property<string?>(m, "Name"))
+            .ToList();
 
-        if (_volume > 0.5f)
-        {
-            var filler = new PackagingMaterial();
-            filler.SetMaterialId("secondary-filler");
-            filler.SetName("Paper Filler");
-            filler.SetMaterialType("Paper");
-            filler.SetRecyclable(true);
-            filler.SetReusable(false);
-            materials.Add(filler);
-        }
-
-        if (_volume > 2.0f)
-        {
-            var wrap = new PackagingMaterial();
-            wrap.SetMaterialId("secondary-stretch");
-            wrap.SetName("Stretch Wrap");
-            wrap.SetMaterialType("Plastic");
-            wrap.SetRecyclable(false);
-            wrap.SetReusable(false);
-            materials.Add(wrap);
-        }
-
-        return materials;
+        return ordered.Take(target).ToList();
     }
 }

@@ -173,8 +173,8 @@ builder.Services.AddScoped<ProRental.Interfaces.Module3.P2_5.IPackagingFootprint
 //Team P2-6
 // Data source
 
-// Module 2 order service — provides order + product data for packaging profile creation
-builder.Services.AddScoped<ProRental.Data.Module2.Interfaces.IOrderService, ProRental.Data.Module2.Gateways.OrderService>();
+// Module 1 order service — provides order + product data for packaging profile creation
+builder.Services.AddScoped<ProRental.Data.Module1.Interfaces.IOrderService, ProRental.Data.Module1.Gateways.OrderService>();
 
 // Domain
 

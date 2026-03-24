@@ -1,7 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using ProRental.Data.Module3.P2_5.Interfaces;
 using ProRental.Data.UnitOfWork;
-using ProRental.Domain.Module3.P2_5;
+using ProRental.Domain.Entities;
 
 namespace ProRental.Data.Module3.P2_5.Gateways;
 
@@ -14,105 +14,43 @@ public class PackagingConfigurationGateway : IPackagingConfigurationGateway
         _db = db;
     }
 
-    public void SaveConfiguration(PackagingConfiguration config)
+    public void SaveConfiguration(int profileId)
     {
-        if (!int.TryParse(config.GetProfileId(), out var profileId)) return;
-
-        _db.Database.ExecuteSqlRaw(
-            "INSERT INTO packagingconfiguration (profileid) VALUES ({0})",
-            profileId
-        );
+        var config = new Packagingconfiguration();
+        _db.Packagingconfigurations.Add(config);
+        _db.Entry(config).Property("Profileid").CurrentValue = profileId;
+        _db.SaveChanges();
     }
 
-    public void SaveMaterials(string configurationId, List<PackagingMaterial> items, string category, int quantity)
+    public void SaveMaterials(int configurationId, List<Packagingmaterial> items, string category, int quantity)
     {
-        if (!int.TryParse(configurationId, out var configId)) return;
-
         foreach (var material in items)
         {
-            if (!int.TryParse(material.GetMaterialId(), out var materialId)) continue;
+            var materialId = _db.Entry(material).Property<int>("Materialid").CurrentValue;
 
-            _db.Database.ExecuteSqlRaw(
-                "INSERT INTO packagingconfigmaterials (configurationid, materialid, category, quantity) VALUES ({0}, {1}, {2}, {3})",
-                configId, materialId, category, quantity
-            );
+            var configMaterial = new Packagingconfigmaterial();
+            _db.Packagingconfigmaterials.Add(configMaterial);
+            _db.Entry(configMaterial).CurrentValues.SetValues(new Dictionary<string, object>
+            {
+                ["Configurationid"] = configurationId,
+                ["Materialid"] = materialId,
+                ["Category"] = category,
+                ["Quantity"] = quantity
+            });
+            _db.SaveChanges();
         }
     }
 
-    public PackagingConfiguration FindByConfigurationId(string configurationId)
+    public Packagingconfiguration FindByConfigurationId(int configurationId)
     {
-        if (!int.TryParse(configurationId, out var id)) return null!;
-
-        var row = _db.Packagingconfigurations
-            .Where(c => EF.Property<int>(c, "Configurationid") == id)
-            .Select(c => new
-            {
-                ConfigId  = EF.Property<int>(c, "Configurationid"),
-                ProfileId = EF.Property<int>(c, "Profileid"),
-                Materials = c.Packagingconfigmaterials.Select(cm => new
-                {
-                    Category   = EF.Property<string?>(cm, "Category"),
-                    Quantity   = EF.Property<int>(cm, "Quantity"),
-                    MaterialId = EF.Property<int>(cm.Material, "Materialid"),
-                    Name       = EF.Property<string>(cm.Material, "Name"),
-                    Type       = EF.Property<string?>(cm.Material, "Type"),
-                    Recyclable = EF.Property<bool>(cm.Material, "Recyclable"),
-                    Reusable   = EF.Property<bool>(cm.Material, "Reusable")
-                }).ToList()
-            })
+        var config = _db.Packagingconfigurations
+            .Where(c => EF.Property<int>(c, "Configurationid") == configurationId)
+            .Include(c => c.Packagingconfigmaterials)
+                .ThenInclude(cm => cm.Material)
             .FirstOrDefault();
 
-        if (row == null) return null!;
-        return BuildConfiguration(row.ConfigId, row.ProfileId, row.Materials.Select(m => (m.Category, m.Quantity, m.MaterialId, m.Name, m.Type, m.Recyclable, m.Reusable)));
+        return config!;
     }
 
-    public List<PackagingConfiguration> FindByProfileId(string profileId)
-    {
-        if (!int.TryParse(profileId, out var id)) return new List<PackagingConfiguration>();
-
-        return _db.Packagingconfigurations
-            .Where(c => EF.Property<int>(c, "Profileid") == id)
-            .Select(c => new
-            {
-                ConfigId  = EF.Property<int>(c, "Configurationid"),
-                ProfileId = EF.Property<int>(c, "Profileid"),
-                Materials = c.Packagingconfigmaterials.Select(cm => new
-                {
-                    Category   = EF.Property<string?>(cm, "Category"),
-                    Quantity   = EF.Property<int>(cm, "Quantity"),
-                    MaterialId = EF.Property<int>(cm.Material, "Materialid"),
-                    Name       = EF.Property<string>(cm.Material, "Name"),
-                    Type       = EF.Property<string?>(cm.Material, "Type"),
-                    Recyclable = EF.Property<bool>(cm.Material, "Recyclable"),
-                    Reusable   = EF.Property<bool>(cm.Material, "Reusable")
-                }).ToList()
-            })
-            .AsEnumerable()
-            .Select(row => BuildConfiguration(row.ConfigId, row.ProfileId, row.Materials.Select(m => (m.Category, m.Quantity, m.MaterialId, m.Name, m.Type, m.Recyclable, m.Reusable))))
-            .ToList();
-    }
-
-    private static PackagingConfiguration BuildConfiguration(
-        int configId,
-        int profileId,
-        IEnumerable<(string? Category, int Quantity, int MaterialId, string Name, string? Type, bool Recyclable, bool Reusable)> materials)
-    {
-        var config = new PackagingConfiguration();
-        config.SetConfigurationId(configId.ToString());
-        config.SetProfileId(profileId.ToString());
-
-        foreach (var m in materials)
-        {
-            var material = new PackagingMaterial();
-            material.SetMaterialId(m.MaterialId.ToString());
-            material.SetName(m.Name);
-            material.SetMaterialType(m.Type ?? string.Empty);
-            material.SetRecyclable(m.Recyclable);
-            material.SetReusable(m.Reusable);
-
-            config.AddMaterial(m.Category ?? "secondary", material, m.Quantity);
-        }
-
-        return config;
-    }
+    public int GetConfigurationId(Packagingconfiguration config) => _db.Entry(config).Property<int>("Configurationid").CurrentValue;
 }

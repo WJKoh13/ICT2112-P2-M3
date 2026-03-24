@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using ProRental.Data.Module3.P2_5.Interfaces;
 using ProRental.Data.UnitOfWork;
+using ProRental.Domain.Entities;
 using ProRental.Domain.Module3.P2_5;
 
 namespace ProRental.Data.Module3.P2_5.Gateways;
@@ -14,108 +15,65 @@ public class PackagingProfileGateway : IPackagingProfileGateway
         _db = db;
     }
 
-    public void Save(PackagingProfile profile)
+    public void Save(int orderId, float volume, string fragilityLevel)
     {
-        _db.Database.ExecuteSqlRaw(
-            "INSERT INTO packagingprofile (orderid, volume, fragilitylevel) VALUES ({0}, {1}, {2})",
-            profile.GetOrderId(),
-            profile.GetVolume(),
-            profile.GetFragilityLevel()
-        );
+        var profile = new Packagingprofile();
+        _db.Packagingprofiles.Add(profile);
+        _db.Entry(profile).CurrentValues.SetValues(new Dictionary<string, object>
+        {
+            ["Orderid"] = orderId,
+            ["Volume"] = volume,
+            ["Fragilitylevel"] = fragilityLevel.ToLowerInvariant()
+        });
+        _db.SaveChanges();
     }
 
-    public PackagingProfile FindByProfileId(string profileId)
+    public Packagingprofile FindByProfileId(int profileId)
     {
-        if (!int.TryParse(profileId, out var id)) return null!;
+        var profile = _db.Packagingprofiles
+            .Where(p => EF.Property<int>(p, "Profileid") == profileId)
+            .FirstOrDefault();
+        
+        return profile!;
+    }
 
-        var row = _db.Packagingprofiles
-            .Where(p => EF.Property<int>(p, "Profileid") == id)
-            .Select(p => new
-            {
-                ProfileId      = EF.Property<int>(p, "Profileid"),
-                OrderId        = EF.Property<int>(p, "Orderid"),
-                Volume         = EF.Property<double>(p, "Volume"),
-                FragilityLevel = EF.Property<string?>(p, "Fragilitylevel")
-            })
+    public Packagingprofile FindByOrderId(int orderId)
+    {
+        var profile = _db.Packagingprofiles
+            .Include(p => p.Packagingconfigurations)
+                .ThenInclude(c => c.Packagingconfigmaterials)
+                    .ThenInclude(cm => cm.Material)
+            .Where(p => EF.Property<int>(p, "Orderid") == orderId)
             .FirstOrDefault();
 
-        return row == null ? null! : MapToDomain(row.ProfileId, row.OrderId, row.Volume, row.FragilityLevel);
+        return profile!;
     }
 
-    public PackagingProfile FindByOrderId(string orderId)
-    {
-        if (!int.TryParse(orderId, out var id)) return null!;
-
-        var row = _db.Packagingprofiles
-            .Where(p => EF.Property<int>(p, "Orderid") == id)
-            .Select(p => new
-            {
-                ProfileId      = EF.Property<int>(p, "Profileid"),
-                OrderId        = EF.Property<int>(p, "Orderid"),
-                Volume         = EF.Property<double>(p, "Volume"),
-                FragilityLevel = EF.Property<string?>(p, "Fragilitylevel")
-            })
-            .FirstOrDefault();
-
-        return row == null ? null! : MapToDomain(row.ProfileId, row.OrderId, row.Volume, row.FragilityLevel);
-    }
-
-    public List<PackagingProfile> FindAll()
+    public List<PackagingFootprintProfileDto> GetAllFootprintProfiles()
     {
         return _db.Packagingprofiles
-            .Select(p => new
+            .Select(p => new PackagingFootprintProfileDto
             {
-                ProfileId      = EF.Property<int>(p, "Profileid"),
-                OrderId        = EF.Property<int>(p, "Orderid"),
-                Volume         = EF.Property<double>(p, "Volume"),
-                FragilityLevel = EF.Property<string?>(p, "Fragilitylevel")
+                OrderId = EF.Property<int>(p, "Orderid"),
+                ProfileId = EF.Property<int>(p, "Profileid"),
+                FragilityLevel = EF.Property<string>(p, "Fragilitylevel"),
+                Volume = EF.Property<double>(p, "Volume"),
+                ProductName = EF.Property<string>(p.Order.Orderitems.FirstOrDefault()!.Product.Productdetail!, "Name") ?? "Unknown",
+                Materials = p.Packagingconfigurations.FirstOrDefault()!.Packagingconfigmaterials
+                    .Select(cm => new MaterialFootprintDto
+                    {
+                        MaterialName = EF.Property<string>(cm.Material, "Name"),
+                        Quantity = EF.Property<int>(cm, "Quantity"),
+                        Category = EF.Property<string>(cm, "Category"),
+                        MaterialType = EF.Property<string>(cm.Material, "Type"),
+                        Recyclable = EF.Property<bool>(cm.Material, "Recyclable"),
+                        Reusable = EF.Property<bool>(cm.Material, "Reusable")
+                    }).ToList()
             })
-            .AsEnumerable()
-            .Select(r => MapToDomain(r.ProfileId, r.OrderId, r.Volume, r.FragilityLevel))
             .ToList();
     }
 
-    public List<dynamic> GetAllFootprintDetails()
-    {
-        var rows = _db.Packagingprofiles
-            .Join(_db.Packagingconfigurations,
-                profile => EF.Property<int>(profile, "Profileid"),
-                config  => EF.Property<int>(config,  "Profileid"),
-                (profile, config) => new { profile, config })
-            .Join(_db.Packagingconfigmaterials,
-                pc  => EF.Property<int>(pc.config, "Configurationid"),
-                pcm => EF.Property<int>(pcm,       "Configurationid"),
-                (pc, pcm) => new { pc.profile, pc.config, pcm })
-            .Join(_db.Packagingmaterials,
-                pcmRow   => EF.Property<int>(pcmRow.pcm, "Materialid"),
-                material => EF.Property<int>(material,   "Materialid"),
-                (pcmRow, material) => new
-                {
-                    OrderId         = EF.Property<int>(pcmRow.profile,    "Orderid"),
-                    ProfileId       = EF.Property<int>(pcmRow.profile,    "Profileid"),
-                    FragilityLevel  = EF.Property<string?>(pcmRow.profile,"Fragilitylevel"),
-                    Volume          = EF.Property<double>(pcmRow.profile, "Volume"),
-                    Category        = EF.Property<string?>(pcmRow.pcm,    "Category"),
-                    Quantity        = EF.Property<int>(pcmRow.pcm,        "Quantity"),
-                    MaterialName    = EF.Property<string>(material,       "Name"),
-                    MaterialType    = EF.Property<string?>(material,      "Type"),
-                    Recyclable      = EF.Property<bool>(material,         "Recyclable"),
-                    Reusable        = EF.Property<bool>(material,         "Reusable")
-                })
-            .AsEnumerable()
-            .Cast<dynamic>()
-            .ToList();
-
-        return rows;
-    }
-
-    private static PackagingProfile MapToDomain(int profileId, int orderId, double volume, string? fragilityLevel)
-    {
-        var dm = new PackagingProfile();
-        dm.SetProfileId(profileId.ToString());
-        dm.SetOrderId(orderId.ToString());
-        dm.SetVolume((float)volume);
-        dm.SetFragilityLevel(fragilityLevel ?? "low");
-        return dm;
-    }
+    public int GetProfileId(Packagingprofile profile) => _db.Entry(profile).Property<int>("Profileid").CurrentValue;
+    public string GetFragilityLevel(Packagingprofile profile) => _db.Entry(profile).Property<string>("Fragilitylevel").CurrentValue ?? "low";
+    public double GetVolume(Packagingprofile profile) => _db.Entry(profile).Property<double>("Volume").CurrentValue;
 }

@@ -1,88 +1,127 @@
+using ProRental.Data.Module1.Interfaces;
 using ProRental.Data.Module3.P2_5.Interfaces;
-using ProRental.Domain.Module3.P2_5;
+using ProRental.Domain.Entities;
 using ProRental.Interfaces.Module3.P2_5;
 
 namespace ProRental.Domain.Module3.P2_5.Controls;
 
 public class PackagingProfilerControl : IPackagingProfilerControl
 {
+    private readonly IOrderService _orderService;
     private readonly IPackagingProfileGateway _profileGateway;
     private readonly IPackagingConfigurationGateway _configGateway;
     private readonly IPackagingMaterialGateway _materialGateway;
+    private readonly IPackagingFootprintControl _footprintControl;
 
     public PackagingProfilerControl(
+        IOrderService orderService,
         IPackagingProfileGateway profileGateway,
         IPackagingConfigurationGateway configGateway,
-        IPackagingMaterialGateway materialGateway)
+        IPackagingMaterialGateway materialGateway,
+        IPackagingFootprintControl footprintControl)
     {
-        _profileGateway  = profileGateway;
-        _configGateway   = configGateway;
+        _orderService = orderService;
+        _profileGateway = profileGateway;
+        _configGateway = configGateway;
         _materialGateway = materialGateway;
+        _footprintControl = footprintControl;
     }
     
-    public PackagingProfile CreatePackagingProfile(string orderId, float volume, string fragilityLevel)
+    public Packagingprofile CreatePackagingProfile(int orderId, float volume, string fragilityLevel)
     {
-        var profile = new PackagingProfile();
-        profile.SetOrderId(orderId);
-        profile.SetVolume(volume);
-        profile.SetFragilityLevel(fragilityLevel);
+        if (orderId <= 0)
+            throw new ArgumentOutOfRangeException(nameof(orderId), "Error: Invalid Order ID.");
 
-        _profileGateway.Save(profile);
+        if (string.IsNullOrWhiteSpace(fragilityLevel))
+            fragilityLevel = "low";
+        
+        var existingProfile = _profileGateway.FindByOrderId(orderId);
+        if (existingProfile != null)
+            return existingProfile;
 
-        var saved = _profileGateway.FindByOrderId(orderId);
-        return saved ?? profile;
+        _profileGateway.Save(orderId, volume, fragilityLevel);
+
+        return _profileGateway.FindByOrderId(orderId);
     }
 
-    public PackagingConfiguration CreatePackagingConfiguration(PackagingProfile profile)
+    public Entities.Packagingconfiguration CreatePackagingConfiguration(Packagingprofile profile)
     {
-        var config = new PackagingConfiguration();
-        config.SetProfileId(profile.GetProfileId());
+        if (profile == null) throw new ArgumentNullException(nameof(profile));
 
-        // Determine the required material types from profile business rules
-        var primaryMaterial    = profile.DeterminePrimaryPackaging();
-        var secondaryMaterials = profile.DetermineSecondaryPackaging();
+        var profileId = _profileGateway.GetProfileId(profile);
+        if (profileId <= 0)
+            throw new InvalidOperationException("Invalid packaging profile ID. Save profile before creating configuration.");
+        
+        _configGateway.SaveConfiguration(profileId);
 
-        config.AddMaterial("primary", primaryMaterial, 1);
-        foreach (var material in secondaryMaterials)
-            config.AddMaterial("secondary", material, 1);
+        var profileFromDb = _profileGateway.FindByProfileId(profileId);
+        if (profileFromDb == null)
+            throw new InvalidOperationException("Profile was not found after configuration creation.");
 
-        // Persist the configuration shell
-        _configGateway.SaveConfiguration(config);
+        var config = profileFromDb.Packagingconfigurations.FirstOrDefault();
+        if (config == null)
+            throw new InvalidOperationException("Failed to create packaging configuration.");
 
-        // Retrieve the persisted configuration to get the DB-assigned configurationid
-        var saved = _configGateway.FindByProfileId(profile.GetProfileId()).FirstOrDefault();
-        if (saved == null) return config;
+        var fragilityLevel = _profileGateway.GetFragilityLevel(profile);
+        var volume = _profileGateway.GetVolume(profile);
 
-        // Load all real DB materials so we can match by type and get valid integer IDs
         var allMaterials = _materialGateway.FindAll();
+        var primaryMaterial = profileFromDb.DeterminePrimaryPackaging(fragilityLevel, allMaterials);
+        var secondaryMaterials = profileFromDb.DetermineSecondaryPackaging(volume, allMaterials);
 
-        // Resolve primary material — find first DB material matching the required type
-        var resolvedPrimary = allMaterials
-            .FirstOrDefault(m => m.GetMaterialType().Equals(
-                primaryMaterial.GetMaterialType(), StringComparison.OrdinalIgnoreCase))
-            ?? allMaterials.FirstOrDefault();
+        var configId = _configGateway.GetConfigurationId(config);
 
-        if (resolvedPrimary != null)
-            _configGateway.SaveMaterials(
-                saved.GetConfigurationId(),
-                new List<PackagingMaterial> { resolvedPrimary },
-                "primary", 1);
+        if (primaryMaterial != null)
+            _configGateway.SaveMaterials(configId, new List<Packagingmaterial> { primaryMaterial }, "primary", 1);
 
-        // Resolve each secondary material — match by type, fall back to first available
-        foreach (var secondary in secondaryMaterials)
+        if (secondaryMaterials.Any())
+            _configGateway.SaveMaterials(configId, secondaryMaterials, "secondary", 1);
+
+        return _configGateway.FindByConfigurationId(configId);
+    }
+
+    public List<dynamic> GetAllPackagingFootprints()
+    {
+        try
         {
-            var resolved = allMaterials
-                .FirstOrDefault(m => m.GetMaterialType().Equals(
-                    secondary.GetMaterialType(), StringComparison.OrdinalIgnoreCase))
-                ?? allMaterials.FirstOrDefault();
+            var profiles = _profileGateway.GetAllFootprintProfiles();
+            var results = new List<dynamic>();
 
-            if (resolved != null)
-                _configGateway.SaveMaterials(
-                    saved.GetConfigurationId(),
-                    new List<PackagingMaterial> { resolved },
-                    "secondary", 1);
+            foreach (var profile in profiles)
+            {
+                if (!profile.Materials.Any()) continue;
+
+                foreach (var material in profile.Materials)
+                {
+                    var footprintKg = _footprintControl.CalculatePackagingFootprint(new List<MaterialFootprintDto> { material });
+
+                    results.Add((dynamic)new
+                    {
+                        OrderId = profile.OrderId,
+                        ProductName = profile.ProductName,
+                        ProfileId = profile.ProfileId,
+                        FragilityLevel = profile.FragilityLevel ?? "low",
+                        Volume = profile.Volume,
+                        
+                        Category = material.Category,
+                        MaterialName = material.MaterialName,
+                        MaterialType = material.MaterialType,
+                        Quantity = material.Quantity,
+                        Recyclable = material.Recyclable,
+                        Reusable = material.Reusable,
+
+                        FootprintKg = footprintKg
+                    });
+                }
+            }
+
+            return results;
         }
-
-        return saved;
+        catch (Exception ex)
+        {
+            Console.Error.WriteLine(
+                $"[PackagingProfilerControl] Error retrieving footprints: {ex.Message}");
+            return new List<dynamic>();
+        }
     }
 }

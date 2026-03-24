@@ -1,9 +1,10 @@
-using ProRental.Domain.Module3.P2_5;
+using ProRental.Domain.Entities;
 
 namespace ProRental.Interfaces.Module3.P2_5;
 
 public interface IPackagingProfilerControl
 {
-    PackagingProfile CreatePackagingProfile(string orderId, float volume, string fragilityLevel);
-    PackagingConfiguration CreatePackagingConfiguration(PackagingProfile profile);
+    Packagingprofile CreatePackagingProfile(int orderId, float volume, string fragilityLevel);
+    Packagingconfiguration CreatePackagingConfiguration(Packagingprofile profile);
+    List<dynamic> GetAllPackagingFootprints();
 }
