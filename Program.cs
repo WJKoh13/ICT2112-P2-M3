@@ -151,7 +151,7 @@ builder.Services.AddScoped<ProRental.Data.Interfaces.ITransportationHubMapper, P
 // Domain
 builder.Services.AddScoped<ProRental.Domain.Control.TransportationHubFactory>();
 builder.Services.AddScoped<ProRental.Interfaces.Module3.P2_1.IHubCarbonService, ProRental.Domain.Control.TransportationHubManager>();
-builder.Services.AddScoped<ProRental.Interfaces.IHubInfoService, ProRental.Domain.Control.TransportationHubManager>();
+builder.Services.AddScoped<ProRental.Interfaces.Module3.P2_1.IHubInfoService, ProRental.Domain.Control.TransportationHubManager>();
 builder.Services.AddScoped<ProRental.Interfaces.IInventoryService, ProRental.Domain.Control.DummyInventoryService>(); // TODO: Replace with Module 2's real implementation
 builder.Services.AddFeature1Services();
 //TODO: ADD THIS INTO A REGISTRATION

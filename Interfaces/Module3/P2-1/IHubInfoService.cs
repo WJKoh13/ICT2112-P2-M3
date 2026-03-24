@@ -1,6 +1,7 @@
 using ProRental.Domain.Entities;
+using ProRental.Interfaces;
 
-namespace ProRental.Interfaces;
+namespace ProRental.Interfaces.Module3.P2_1;
 
 /// <summary>
 /// Exposes hub information methods.
