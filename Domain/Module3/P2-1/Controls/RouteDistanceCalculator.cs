@@ -15,14 +15,38 @@ public sealed class RouteDistanceCalculator : IRouteDistanceCalculator
         { ("TRAIN Hub", "TRUCK Hub"), 10d }
     };
 
+    private readonly IGoogleMapsApi _googleMapsApi;
+
+    public RouteDistanceCalculator(IGoogleMapsApi googleMapsApi)
+    {
+        _googleMapsApi = googleMapsApi;
+    }
+
     public double CalculateDistanceKm(string startPoint, string endPoint)
     {
-        if (!DistancesByLeg.TryGetValue((startPoint, endPoint), out var distanceKm))
+        try
         {
-            distanceKm = CalculateFallbackDistanceKm(startPoint, endPoint);
+            var googleDistanceKm = _googleMapsApi
+                .FetchRouteDistanceKmAsync(startPoint, endPoint)
+                .GetAwaiter()
+                .GetResult();
+
+            if (googleDistanceKm.HasValue && googleDistanceKm.Value >= 0d)
+            {
+                return googleDistanceKm.Value;
+            }
+        }
+        catch
+        {
+            // Preserve the current route-generation flow even when external API calls fail.
         }
 
-        return distanceKm;
+        if (DistancesByLeg.TryGetValue((startPoint, endPoint), out var configuredDistanceKm))
+        {
+            return configuredDistanceKm;
+        }
+
+        return CalculateFallbackDistanceKm(startPoint, endPoint);
     }
 
     private static double CalculateFallbackDistanceKm(string startPoint, string endPoint)

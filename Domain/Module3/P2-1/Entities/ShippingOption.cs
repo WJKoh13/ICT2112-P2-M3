@@ -61,7 +61,7 @@ public partial class ShippingOption
             _transportMode?.ToString() ?? string.Empty);
     }
 
-    public ShippingSelectionResult GetSelectionResult()
+    public ShippingSelectionResult GetSelectionResult(double? distanceKm = null)
     {
         var summary = GetSummary();
         return new ShippingSelectionResult(
@@ -71,6 +71,7 @@ public partial class ShippingOption
             summary.Cost,
             summary.CarbonFootprintKg,
             summary.DeliveryDays,
-            summary.TransportModeLabel);
+            summary.TransportModeLabel,
+            distanceKm);
     }
 }
