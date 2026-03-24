@@ -1,7 +1,10 @@
+@using ProRental.Domain.Module3.P2_5.Controls
+@using ProRental.Domain.Module3.P2_5.Entities
 @model ProRental.Domain.Module3.P2_5.Entities.EcoCatalogViewModel
 @{
     ViewData["Title"] = "Feature 5 Eco Catalog";
     Layout = null;
+    var ecoBadgeControl = new EcoBadgeControl();
 }
 <!DOCTYPE html>
 <html lang="en">
@@ -252,18 +255,13 @@
                                     <tbody>
                                         @foreach (var item in Model.Products)
                                         {
-                                            var tier = item.GetCarbonScore() switch
-                                            {
-                                                <= 120m => "Gold",
-                                                <= 180m => "Silver",
-                                                <= 250m => "Bronze",
-                                                _ => "Standard"
-                                            };
+                                            var tier = ecoBadgeControl.AssignTier(item.GetCarbonScore());
+                                            var tierBadge = ecoBadgeControl.GetBadge(tier);
                                             var tierClass = tier switch
                                             {
-                                                "Gold" => "badge-tier-gold",
-                                                "Silver" => "badge-tier-silver",
-                                                "Bronze" => "badge-tier-bronze",
+                                                EcoTier.Gold => "badge-tier-gold",
+                                                EcoTier.Silver => "badge-tier-silver",
+                                                EcoTier.Bronze => "badge-tier-bronze",
                                                 _ => "badge-tier-standard"
                                             };
 
@@ -274,7 +272,7 @@
                                                 <td>$@item.GetPrice().ToString("0.00")</td>
                                                 <td>@item.GetCarbonScore().ToString("0.0") g</td>
                                                 <td>@item.GetEcoBadge()</td>
-                                                <td><span class="badge @tierClass">@tier</span></td>
+                                                <td><span class="badge @tierClass">@tierBadge.Name</span></td>
                                             </tr>
                                         }
                                     </tbody>

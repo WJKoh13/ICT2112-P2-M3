@@ -8,10 +8,12 @@ namespace ProRental.Domain.Module3.P2_5.Controls
     public class CatalogControl
     {
         private readonly ICatalogGateway _catalogGateway;
+        private readonly EcoBadgeControl _ecoBadgeControl;
 
         public CatalogControl(ICatalogGateway catalogGateway)
         {
             _catalogGateway = catalogGateway;
+            _ecoBadgeControl = new EcoBadgeControl();
         }
 
         // FEATURE 5: Eco Product Discovery
@@ -20,7 +22,7 @@ namespace ProRental.Domain.Module3.P2_5.Controls
             var products = _catalogGateway.GetAll();
 
             return products
-                .Where(product => product.HasEcoBadge())
+                .Where(product => _ecoBadgeControl.IsEcoFriendly(product.GetCarbonScore()))
                 .OrderBy(product => product.GetCarbonScore())
                 .ToList();
         }
