@@ -5,17 +5,20 @@ using Npgsql;
 using ProRental.Data.Module3.P2_5.Gateways;
 using ProRental.Data.Module3.P2_5.Interfaces;
 using ProRental.Domain.Enums;
+using ProRental.Domain.Module2.P2_3.Controls;
+using ProRental.Domain.Module2.P2_3.Mappers;
 using ProRental.Domain.Module3.P2_5.Controls;
 using ProRental.Domain.Entities;
 using ProRental.Interfaces.Data.Module3.P2_5;
+using ProRental.Interfaces.Module2.P2_3;
 using ProRental.Interfaces.Module3.P2_5;
 
 // uncomment when ready to code
-// using ProRental.Data;
-// using ProRental.Domain.Controls;
+using ProRental.Data;
+using ProRental.Domain.Controls;
 // using ProRental.Domain.Entities;
-// using ProRental.Interfaces.Domain;
-// using ProRental.Interfaces.Data;
+using ProRental.Interfaces.Domain;
+using ProRental.Interfaces.Data;
 // using ProRental.Controllers;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -38,6 +41,7 @@ dataSourceBuilder.MapEnum<CarbonStageType>("carbon_stage_type", new Npgsql.NameT
 dataSourceBuilder.MapEnum<CartStatus>("cart_status_enum", new Npgsql.NameTranslation.NpgsqlNullNameTranslator());
 dataSourceBuilder.MapEnum<CheckoutStatus>("checkout_status_enum", new Npgsql.NameTranslation.NpgsqlNullNameTranslator());
 dataSourceBuilder.MapEnum<ClearanceBatchStatus>("clearance_batch_status", new Npgsql.NameTranslation.NpgsqlNullNameTranslator());
+dataSourceBuilder.MapEnum<ClearanceStatus>("clearance_status", new Npgsql.NameTranslation.NpgsqlNullNameTranslator());
 dataSourceBuilder.MapEnum<DeliveryDuration>("delivery_duration_enum", new Npgsql.NameTranslation.NpgsqlNullNameTranslator());
 dataSourceBuilder.MapEnum<DeliveryType>("delivery_type_enum", new Npgsql.NameTranslation.NpgsqlNullNameTranslator());
 dataSourceBuilder.MapEnum<FileFormat>("file_format_enum", new Npgsql.NameTranslation.NpgsqlNullNameTranslator());
@@ -92,6 +96,7 @@ builder.Services.AddDbContext<AppDbContext>(options =>
         o.MapEnum<CartStatus>("cart_status_enum");
         o.MapEnum<CheckoutStatus>("checkout_status_enum");
         o.MapEnum<ClearanceBatchStatus>("clearance_batch_status");
+        o.MapEnum<ClearanceStatus>("clearance_status");
         o.MapEnum<DeliveryDuration>("delivery_duration_enum");
         o.MapEnum<DeliveryType>("delivery_type_enum");
         o.MapEnum<FileFormat>("file_format_enum");
@@ -131,12 +136,7 @@ builder.Services.AddDbContext<AppDbContext>(options =>
     }));
 
 //Services builder(add your mappers/gateways, controllers, control and interface classes here)
-//Team P2-1
-// Data source
-
-// Domain
-
-// Presentation/Controllers
+//Team P2-1`r`n// Data source`r`n`r`n// Domain`r`n`r`n// Presentation/Controllers
 
 
 //Team P2-2
@@ -150,6 +150,8 @@ builder.Services.AddDbContext<AppDbContext>(options =>
 // Data source
 
 // Domain
+builder.Services.AddScoped<IProductCatalogMapper, ProductCatalogMapper>();
+builder.Services.AddScoped<IProductCatalogService, ProductCatalogControl>();
 
 // Presentation/Controllers
 
@@ -166,11 +168,18 @@ builder.Services.AddDbContext<AppDbContext>(options =>
 // Data source
 builder.Services.AddScoped<IBuildingFootprintGateway, BuildingFootprintGateway>();
 builder.Services.AddScoped<ICatalogGateway, CatalogGateway>();
+builder.Services.AddScoped<IProductCatalogGateway, ProductCatalogGateway>();
 builder.Services.AddScoped<IProductFootprintGateway, ProductFootprintGateway>();
 builder.Services.AddScoped<IStaffFootprintGateway, StaffFootprintGateway>();
+builder.Services.AddScoped<IOrderCarbonDataGateway, OrderCarbonDataGateway>();
+builder.Services.AddScoped<IRewardGateway, RewardGateway>();
+builder.Services.AddScoped<IOrderGateway, OrderGateway>();
 
 // Domain
 builder.Services.AddScoped<ICarbonChartService, CarbonChartControl>();
+builder.Services.AddScoped<IProductFootprintCalculatorService, ProductFootprintCalculatorControl>();
+builder.Services.AddScoped<IProductFootprintService, ProductFootprintService>();
+builder.Services.AddScoped<IRewardsControl, RewardsControl>();
 
 // Presentation/Controllers
 
@@ -212,3 +221,7 @@ app.MapControllerRoute(
     pattern: "{controller=Home}/{action=Index}/{id?}");
 
 app.Run();
+
+
+
+
