@@ -93,7 +93,9 @@ public sealed class ShippingOptionManager : IShippingOptionService
         var quote = _transportCarbonService.CalculateRouteQuote(
             route,
             Math.Max(context.Quantity, 1),
-            Math.Max(context.WeightKg, 1d));
+            Math.Max(context.WeightKg, 1d),
+            context.ProductId,
+            context.HubId);
 
         var existingOptions = await _shippingOptionMapper.FindByOrderIdAsync(request.OrderId, cancellationToken);
         var option = existingOptions.FirstOrDefault() ?? new ShippingOption();

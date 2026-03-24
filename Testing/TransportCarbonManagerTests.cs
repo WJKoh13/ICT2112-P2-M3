@@ -2,6 +2,8 @@ using ProRental.Data.Module3.P2_1.Interfaces;
 using ProRental.Domain.Entities;
 using ProRental.Domain.Enums;
 using ProRental.Domain.Module3.P2_1.Controls;
+using ProRental.Interfaces;
+using ProRental.Interfaces.Module3.P2_1;
 using ProRental.Models.Module3.P2_1;
 
 namespace ProRental.Testing;
@@ -89,14 +91,14 @@ internal static class TransportCarbonManagerTests
         truckLeg.ConfigureLeg(2, "Airport Hub", "Customer", 8d, TransportMode.TRUCK, false, true);
         route.RouteLegs.Add(truckLeg);
 
-        var quote = manager.CalculateRouteQuote(route, 1, 2d);
+        var quote = manager.CalculateRouteQuote(route, 1, 2d, 10, 20);
 
-        TestAssertions.AssertEqual(new RouteQuoteResult(93.12m, 52d), quote);
+        TestAssertions.AssertEqual(new RouteQuoteResult(98.97m, 62d), quote);
     }
 
     private static TransportCarbonManager CreateManager()
     {
-        return new TransportCarbonManager(new StubPricingRuleGateway());
+        return new TransportCarbonManager(new StubPricingRuleGateway(), new StubHubCarbonService());
     }
 
     private sealed class StubPricingRuleGateway : IPricingRuleGateway
@@ -144,5 +146,15 @@ internal static class TransportCarbonManagerTests
                 ?? throw new InvalidOperationException($"Field '{fieldName}' was not found on {typeof(TTarget).Name}.");
             field.SetValue(target, value);
         }
+    }
+
+    private sealed class StubHubCarbonService : IHubCarbonService
+    {
+        public double CalculateHubCarbon(int hubId, double hours) => 0d;
+        public double CalculateProductStorageCarbon(int productId, int hubId) => 10d;
+        public List<ItemCarbonInfo> GetProductItemCarbonBreakdown(int productId, int hubId) => [];
+        public List<ItemCarbonInfo> RecommendItemsToClear(int hubId) => [];
+        public List<ProductTimeInfo> GetProductTimeInWarehouse(int hubId) => [];
+        public List<ProductStorageInfo> GetAllProductStorageInfo() => [];
     }
 }
