@@ -1,28 +1,84 @@
-﻿using System;
-using System.Collections.Generic;
+using System;
 
 namespace ProRental.Domain.Entities;
 
 public partial class Buildingfootprint
 {
     private int _buildingcarbonfootprintid;
-    public int Buildingcarbonfootprintid { get => _buildingcarbonfootprintid; set => _buildingcarbonfootprintid = value; }
-
     private DateTime _timehourly;
-    public DateTime Timehourly { get => _timehourly; set => _timehourly = value; }
-
     private string? _zone;
-    public string? Zone { get => _zone; set => _zone = value; }
-
     private string? _block;
-    public string? Block { get => _block; set => _block = value; }
-
     private string? _floor;
-    public string? Floor { get => _floor; set => _floor = value; }
-
     private string? _room;
-    public string? Room { get => _room; set => _room = value; }
-
     private double _totalroomco2;
-    public double Totalroomco2 { get => _totalroomco2; set => _totalroomco2 = value; }
+
+    public int GetBuildingcarbonfootprintid()
+    {
+        return _buildingcarbonfootprintid;
+    }
+
+    private void SetBuildingcarbonfootprintid(int buildingcarbonfootprintid)
+    {
+        _buildingcarbonfootprintid = buildingcarbonfootprintid;
+    }
+
+    public DateTime GetTimehourly()
+    {
+        return _timehourly;
+    }
+
+    private void SetTimehourly(DateTime timehourly)
+    {
+        _timehourly = timehourly;
+    }
+
+    public string? GetZone()
+    {
+        return _zone;
+    }
+
+    private void SetZone(string? zone)
+    {
+        _zone = zone;
+    }
+
+    public string? GetBlock()
+    {
+        return _block;
+    }
+
+    private void SetBlock(string? block)
+    {
+        _block = block;
+    }
+
+    public string? GetFloor()
+    {
+        return _floor;
+    }
+
+    private void SetFloor(string? floor)
+    {
+        _floor = floor;
+    }
+
+    public string? GetRoom()
+    {
+        return _room;
+    }
+
+    private void SetRoom(string? room)
+    {
+        _room = room;
+    }
+
+    public double GetTotalroomco2()
+    {
+        return _totalroomco2;
+    }
+
+    private void SetTotalroomco2(double totalroomco2)
+    {
+        _totalroomco2 = totalroomco2;
+    }
 }
