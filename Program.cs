@@ -10,10 +10,8 @@ using Npgsql;
 using ProRental.Configuration.Module3.P2_1;
 using ProRental.Domain.Enums;
 using ProRental.Domain.Entities;
-<<<<<<< HEAD
 using ProRental.Testing;
 using ProRental.Interfaces.Module3.P2_1;
-=======
 using ProRental.Interfaces.Data;
 using ProRental.Data;
 using ProRental.Interfaces.Domain;
@@ -21,19 +19,12 @@ using ProRental.Domain.Controls;
 using ProRental.Controllers.Module1;
 using ProRental.Data.Services;
 
->>>>>>> origin/p2-1/Staging
-
 // uncomment when ready to code
 // using ProRental.Data;
 // using ProRental.Domain.Controls;
-<<<<<<< HEAD
 // using ProRental.Domain.Entities;
-// using ProRental.Interfaces.Module3.P2_1;
-=======
-// //using ProRental.Domain.Entities;
 // using ProRental.Interfaces.Domain;
 // using ProRental.Interfaces.Data;
->>>>>>> origin/p2-1/Staging
 // using ProRental.Controllers;
 
 //p2-1 feat 1 test

@@ -165,15 +165,9 @@ public partial class AppDbContext : DbContext
 
     public virtual DbSet<Vettingrecord> Vettingrecords { get; set; }
 
-<<<<<<< HEAD
     public virtual DbSet<Warehouse> Warehouses { get; set; }
 
-//     protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
-// #warning To protect potentially sensitive information in your connection string, you should move it out of source code. You can avoid scaffolding the connection string by using the Name= syntax to read it from configuration - see https://go.microsoft.com/fwlink/?linkid=2131148. For more guidance on storing connection strings, see https://go.microsoft.com/fwlink/?LinkId=723263.
-//         => optionsBuilder.UseNpgsql("Host=localhost;Port=5432;Database=pro_rental;Username=devuser;Password=devpassword");
 
-=======
->>>>>>> origin/p2-1/Staging
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder
