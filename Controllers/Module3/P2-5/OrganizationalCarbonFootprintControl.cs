@@ -7,6 +7,6 @@ public class OrganizationalCarbonFootprintControl : IOrganizationalFootprintCont
 {
     public OrganizationalFootprint CreateOrganizationalFootprint(string organizationId, string organizationName, float volume, float toxicPercentage)
     {
-        return new OrganizationalFootprint(organizationId, organizationName, volume, toxicPercentage);
+        return OrganizationalFootprint.Create(organizationId, organizationName, volume, toxicPercentage);
     }
 }

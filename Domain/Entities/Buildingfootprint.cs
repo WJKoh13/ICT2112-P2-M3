@@ -12,7 +12,49 @@ public partial class Buildingfootprint
     private string? _room;
     private double _totalroomco2;
 
-    public int GetBuildingcarbonfootprintid()
+    private int Buildingcarbonfootprintid
+    {
+        get => _buildingcarbonfootprintid;
+        set => _buildingcarbonfootprintid = value;
+    }
+
+    private DateTime Timehourly
+    {
+        get => _timehourly;
+        set => _timehourly = value;
+    }
+
+    private string? Zone
+    {
+        get => _zone;
+        set => _zone = value;
+    }
+
+    private string? Block
+    {
+        get => _block;
+        set => _block = value;
+    }
+
+    private string? Floor
+    {
+        get => _floor;
+        set => _floor = value;
+    }
+
+    private string? Room
+    {
+        get => _room;
+        set => _room = value;
+    }
+
+    private double Totalroomco2
+    {
+        get => _totalroomco2;
+        set => _totalroomco2 = value;
+    }
+
+    private int GetBuildingcarbonfootprintid()
     {
         return _buildingcarbonfootprintid;
     }
@@ -22,7 +64,7 @@ public partial class Buildingfootprint
         _buildingcarbonfootprintid = buildingcarbonfootprintid;
     }
 
-    public DateTime GetTimehourly()
+    private DateTime GetTimehourly()
     {
         return _timehourly;
     }
@@ -32,7 +74,7 @@ public partial class Buildingfootprint
         _timehourly = timehourly;
     }
 
-    public string? GetZone()
+    private string? GetZone()
     {
         return _zone;
     }
@@ -42,7 +84,7 @@ public partial class Buildingfootprint
         _zone = zone;
     }
 
-    public string? GetBlock()
+    private string? GetBlock()
     {
         return _block;
     }
@@ -52,7 +94,7 @@ public partial class Buildingfootprint
         _block = block;
     }
 
-    public string? GetFloor()
+    private string? GetFloor()
     {
         return _floor;
     }
@@ -62,7 +104,7 @@ public partial class Buildingfootprint
         _floor = floor;
     }
 
-    public string? GetRoom()
+    private string? GetRoom()
     {
         return _room;
     }
@@ -72,7 +114,7 @@ public partial class Buildingfootprint
         _room = room;
     }
 
-    public double GetTotalroomco2()
+    private double GetTotalroomco2()
     {
         return _totalroomco2;
     }

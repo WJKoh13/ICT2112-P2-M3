@@ -1,39 +1,27 @@
+using System;
+
 namespace ProRental.Domain.Entities;
 
-public class OrganizationalFootprint
+public partial class OrganizationalFootprint
 {
-    private string _organizationalFootprintId;
-    private string _organizationalId;
-    private string _organizationName;
-    private float _volume;
-    private float _toxicPercentage;
-
-    public OrganizationalFootprint(string organizationId, string organizationName, float volume, float toxicPercentage)
+    public static OrganizationalFootprint Create(
+        string organizationalId,
+        string organizationalName,
+        float volume,
+        float toxicPercentage)
     {
-        _organizationalFootprintId = Guid.NewGuid().ToString();
-        _organizationalId = organizationId;
-        _organizationName = organizationName;
-        _volume = volume;
-        _toxicPercentage = toxicPercentage;
+        var footprint = new OrganizationalFootprint();
+        footprint._organizationalFootprintId = Guid.NewGuid().ToString();
+        footprint._organizationalId = organizationalId;
+        footprint._organizationName = organizationalName;
+        footprint._volume = volume;
+        footprint._toxicPercentage = toxicPercentage;
+        return footprint;
     }
 
-    public float GetVolume()
-    {
-        return _volume;
-    }
-
-    private void SetVolume(float volume)
-    {
-        _volume = volume;
-    }
-
-    public float GetToxicPercentage()
-    {
-        return _toxicPercentage;
-    }
-
-    private void SetToxicPercentage(float percentage)
-    {
-        _toxicPercentage = percentage;
-    }
+    public string ReadOrganizationalFootprintId() => _organizationalFootprintId;
+    public string ReadOrganizationalId() => _organizationalId;
+    public string ReadOrganizationName() => _organizationName;
+    public float ReadVolume() => _volume;
+    public float ReadToxicPercentage() => _toxicPercentage;
 }
