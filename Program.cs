@@ -82,7 +82,7 @@ var dataSource = dataSourceBuilder.Build();
 // 4. Register the DbContext using the data source instead of a raw string
 // builder.Services.AddDbContext<AppDbContext>(options =>
 //     options.UseNpgsql(dataSource));
-builder.Services.AddDbContext<AppDbContext>(options =>
+builder.Services.AddDbContext<AppDbContext, RuntimeAppDbContext>(options =>
     options.UseNpgsql(dataSource, o => 
     {
         o.MapEnum<AccessEventType>("access_event_type");
@@ -140,6 +140,8 @@ builder.Services.AddScoped<ShipMapper>();
 builder.Services.AddScoped<PlaneMapper>();
 builder.Services.AddScoped<TrainMapper>();
 builder.Services.AddScoped<IPricingRuleGateway, PricingRuleGateway>();
+builder.Services.AddScoped<IDeliveryBatchMapper, DeliveryBatchMapper>();
+builder.Services.AddScoped<IBatchOrderMapper, BatchOrderMapper>();
 
 // Domain
 builder.Services.AddScoped<IShippingOptionService, ShippingOptionService>();
@@ -148,6 +150,15 @@ builder.Services.AddScoped<IRouteDistanceCalculator, RouteDistanceCalculator>();
 builder.Services.AddScoped<ITransportService, TransportationManager>();
 builder.Services.AddScoped<ITransportCarbonService, TransportCarbonManager>();
 builder.Services.AddScoped<TransportationFactory>();
+builder.Services.AddSingleton<InMemoryOrderService>();
+builder.Services.AddSingleton<IOrderSimulationService>(sp => sp.GetRequiredService<InMemoryOrderService>());
+builder.Services.AddSingleton<IOrderService>(sp => sp.GetRequiredService<InMemoryOrderService>());
+builder.Services.AddScoped<IRouteQueryService, MockRouteQueryService>();
+builder.Services.AddScoped<IHubInfoService, MockHubInfoService>();
+builder.Services.AddScoped<IBatchValidator, BatchValidator>();
+builder.Services.AddScoped<IBatchDisplayManager, BatchQueryManager>();
+builder.Services.AddScoped<IBatchQueryManager, BatchQueryManager>();
+builder.Services.AddScoped<IBatchDelivery, BatchConsolidationManager>();
 
 // Presentation/Controllers
 
