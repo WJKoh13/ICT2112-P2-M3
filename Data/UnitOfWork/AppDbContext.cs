@@ -2367,10 +2367,6 @@ public partial class AppDbContext : DbContext
             entity.HasOne(d => d.Order).WithMany(p => p.ShippingOptions)
                 .HasForeignKey("OrderId")
                 .HasConstraintName("fk_shipping_option_order");
-
-            entity.HasOne(d => d.Route).WithMany(p => p.ShippingOptions)
-                .HasForeignKey("RouteId")
-                .HasConstraintName("fk_shipping_option_route");
         });
 
         modelBuilder.Entity<ShippingPort>(entity =>

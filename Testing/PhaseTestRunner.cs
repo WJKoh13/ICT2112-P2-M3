@@ -200,6 +200,13 @@ internal static class Phase0Tests
         TestAssertions.AssertEqual(false, lastLeg.GetIsMainTransport());
         TestAssertions.AssertEqual(true, lastLeg.GetIsLastMile());
 
+        var mainLeg = new RouteLeg();
+        mainLeg.ConfigureLeg(2, "Airport Hub", "Rail Hub", 12d, TransportMode.TRAIN, false, true, false);
+
+        TestAssertions.AssertEqual(false, mainLeg.GetIsFirstMile());
+        TestAssertions.AssertEqual(true, mainLeg.GetIsMainTransport());
+        TestAssertions.AssertEqual(false, mainLeg.GetIsLastMile());
+
         var singleLeg = new RouteLeg();
         singleLeg.ConfigureLeg(1, "Warehouse", "Customer", 24d, TransportMode.TRUCK, true, true);
 

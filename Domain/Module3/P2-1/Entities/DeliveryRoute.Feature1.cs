@@ -10,12 +10,10 @@ public partial class DeliveryRoute
     public int GetRouteId() => _routeId;
     public string GetOriginAddress() => _originAddress;
     public string GetDestinationAddress() => _destinationAddress;
-    public double? GetTotalDistanceKm() => _totalDistanceKm;
-    public bool? GetIsValid() => _isValid;
-    // public int? GetOriginHubId() => _originHubId;
-    // public int? GetDestinationHubId() => _destinationHubId;
+    public double GetTotalDistanceKm() => _totalDistanceKm;
+    public bool GetIsValid() => _isValid;
     public IReadOnlyList<RouteLeg> GetOrderedRouteLegs() => RouteLegs
-        .OrderBy(routeLeg => routeLeg.GetSequence() ?? int.MaxValue)
+        .OrderBy(routeLeg => routeLeg.GetSequence())
         .ToArray();
 
     public void SetOriginAddress(string originAddress) => _originAddress = originAddress;

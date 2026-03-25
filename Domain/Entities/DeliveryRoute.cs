@@ -21,6 +21,4 @@ public partial class DeliveryRoute
     private bool IsValid { get => _isValid; set => _isValid = value; }
 
     public virtual ICollection<RouteLeg> RouteLegs { get; private set; } = new List<RouteLeg>();
-
-    public virtual ICollection<ShippingOption> ShippingOptions { get; private set; } = new List<ShippingOption>();
 }
