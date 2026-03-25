@@ -39,6 +39,27 @@ public class CarbonFootprintController : Controller
         return View("~/Views/Module3/P2-5/PackagingFootprintView.cshtml", footprints);
     }
 
+    [HttpPost]
+    public IActionResult CreatePackagingProfile([FromBody] CreateProfileRequest req)
+    {
+        try
+        {
+            var profile = _packagingControl.CreatePackagingProfile(req.OrderId, req.Volume, req.FragilityLevel);
+            if (profile.Packagingconfigurations != null && profile.Packagingconfigurations.Any())
+            {
+                return BadRequest(new { message = $"A packaging configuration already exists." });
+            }
+
+            _packagingControl.CreatePackagingConfiguration(profile);
+            
+            return Json(new { success = true, message = "Packaging profile and configuration successfully generated!" });
+        }
+        catch (Exception ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
+    }
+
     /// <summary>
     /// Calculate and create a building footprint record.
     /// Formula: totalRoomCo2 = Sr × Cr × Wz × Wf × k (where k = 0.000729)
@@ -98,15 +119,13 @@ public class CarbonFootprintController : Controller
             totalRoomCo2 = Math.Round(totalRoomCo2, 2);
 
             // Create the footprint record
-            var footprint = new Buildingfootprint
-            {
-                Timehourly = DateTime.UtcNow,
-                Zone = request.Zone,
-                Block = request.Block,
-                Floor = request.Floor,
-                Room = request.Room,
-                Totalroomco2 = totalRoomCo2
-            };
+            var footprint = Buildingfootprint.Create(
+                DateTime.UtcNow,
+                request.Zone,
+                request.Block,
+                request.Floor,
+                request.Room,
+                totalRoomCo2);
 
             // Save to database
             var created = await _buildingGateway.CreateBuildingFootprintAsync(footprint);
@@ -222,4 +241,11 @@ public class StaffFootprintRequest
     public int StaffId { get; set; }
     public DateTime CheckInTime { get; set; }
     public DateTime CheckOutTime { get; set; }
+}
+
+public class CreateProfileRequest
+{
+    public int OrderId { get; set; }
+    public float Volume { get; set; }
+    public string FragilityLevel { get; set; } = "low";
 }
