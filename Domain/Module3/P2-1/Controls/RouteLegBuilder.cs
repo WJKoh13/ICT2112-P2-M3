@@ -43,7 +43,7 @@ public sealed class RouteLegBuilder : IRouteLegBuilder
     {
         var distanceKm = _routeDistanceCalculator.CalculateDistanceKm(startPoint, endPoint);
         var routeLeg = new RouteLeg();
-        routeLeg.ConfigureLeg(sequence, startPoint, endPoint, distanceKm, transportMode, isFirstMile, isMainTransport, isLastMile);
+        routeLeg.ConfigureLeg(sequence, startPoint, endPoint, distanceKm, transportMode, isFirstMile, isLastMile);
         return routeLeg;
     }
 }
