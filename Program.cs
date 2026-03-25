@@ -3,6 +3,7 @@ using ProRental.Data.Module3.P2_1.Gateways;
 using ProRental.Data.Module3.P2_1.Interfaces;
 using ProRental.Data.Module3.P2_1.Mappers;
 using ProRental.Domain.Module3.P2_1.Controls;
+using ProRental.Domain.Control;
 using ProRental.Domain.Module3.P2_1.Factories;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Storage;
@@ -94,7 +95,6 @@ var dataSource = dataSourceBuilder.Build();
 // builder.Services.AddDbContext<AppDbContext>(options =>
 //     options.UseNpgsql(dataSource));
 var nullTranslator = new Npgsql.NameTranslation.NpgsqlNullNameTranslator();
-var nullTranslator = new Npgsql.NameTranslation.NpgsqlNullNameTranslator();
 builder.Services.AddDbContext<AppDbContext>(options =>
     options.UseNpgsql(dataSource, o =>
     {
@@ -166,9 +166,12 @@ builder.Services.AddScoped<PlaneMapper>();
 builder.Services.AddScoped<TrainMapper>();
 builder.Services.AddScoped<IPricingRuleGateway, PricingRuleGateway>();
 builder.Services.AddScoped<ProRental.Data.Module3.P2_1.Interfaces.IReturnStageGateway, ProRental.Data.Module3.P2_1.Gateways.ReturnStageGateway>();
+builder.Services.AddScoped<ProRental.Domain.Module3.P2_1.Controls.ReturnStageCalculator>();
+builder.Services.AddScoped<ProRental.Domain.Module3.P2_1.Controls.ReturnCarbonReportService>();
+builder.Services.AddScoped<ProRental.Domain.Module3.P2_1.Controls.ReturnStageSurchargeService>();
 
 // Domain
-builder.Services.AddScoped<IHubCarbonService, HubCarbonService>();
+builder.Services.AddScoped<IHubCarbonService, TransportationHubManager>();
 builder.Services.AddScoped<IRouteDistanceCalculator, RouteDistanceCalculator>();
 builder.Services.AddScoped<ITransportService, TransportationManager>();
 builder.Services.AddScoped<ITransportCarbonService, TransportCarbonManager>();

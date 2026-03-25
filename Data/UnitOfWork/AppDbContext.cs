@@ -23,8 +23,6 @@ public partial class AppDbContext : DbContext
 
     public virtual DbSet<CarbonEmission> CarbonEmissions { get; set; }
 
-    public virtual DbSet<CarbonResult> CarbonResults { get; set; }
-
     public virtual DbSet<Cart> Carts { get; set; }
 
     public virtual DbSet<Cartitem> Cartitems { get; set; }
@@ -450,33 +448,6 @@ public partial class AppDbContext : DbContext
                 .HasConstraintName("fk_carbon_emission_stage");
         });
 
-        modelBuilder.Entity<CarbonResult>(entity =>
-        {
-            entity.HasKey("CarbonResultId").HasName("carbon_result_pkey");
-
-            entity.ToTable("carbon_result");
-
-            entity.Property("CarbonResultId")
-                .HasField("_carbonResultId")
-                .UsePropertyAccessMode(PropertyAccessMode.Field)
-                .UseIdentityAlwaysColumn()
-                .HasColumnName("carbon_result_id");
-            entity.Property("CreatedAt")
-                .HasField("_createdAt")
-                .UsePropertyAccessMode(PropertyAccessMode.Field)
-                .HasDefaultValueSql("now()")
-                .HasColumnType("timestamp without time zone")
-                .HasColumnName("created_at");
-            entity.Property("TotalCarbonKg")
-                .HasField("_totalCarbonKg")
-                .UsePropertyAccessMode(PropertyAccessMode.Field).HasColumnName("total_carbon_kg");
-            entity.Property("ValidationPassed")
-                .HasField("_validationPassed")
-                .UsePropertyAccessMode(PropertyAccessMode.Field)
-                .HasDefaultValue(false)
-                .HasColumnName("validation_passed");
-        });
-
         modelBuilder.Entity<Cart>(entity =>
         {
             entity.HasKey("Cartid").HasName("cart_pkey");
@@ -629,6 +600,8 @@ public partial class AppDbContext : DbContext
                 .HasForeignKey("Deliveryid")
                 .OnDelete(DeleteBehavior.Restrict)
                 .HasConstraintName("fk_checkout_delivery");
+
+            entity.Ignore(e => e.Option);
         });
 
         modelBuilder.Entity<Clearancebatch>(entity =>
@@ -1142,9 +1115,6 @@ public partial class AppDbContext : DbContext
             entity.Property("CarbonRate")
                 .HasField("_carbonRate")
                 .UsePropertyAccessMode(PropertyAccessMode.Field).HasColumnName("carbon_rate");
-            entity.Property("CarbonResultId")
-                .HasField("_carbonResultId")
-                .UsePropertyAccessMode(PropertyAccessMode.Field).HasColumnName("carbon_result_id");
             entity.Property("DistanceKm")
                 .HasField("_distanceKm")
                 .UsePropertyAccessMode(PropertyAccessMode.Field).HasColumnName("distance_km");
@@ -1154,10 +1124,6 @@ public partial class AppDbContext : DbContext
             entity.Property("WeightKg")
                 .HasField("_weightKg")
                 .UsePropertyAccessMode(PropertyAccessMode.Field).HasColumnName("weight_kg");
-
-            entity.HasOne(d => d.CarbonResult).WithMany(p => p.LegCarbons)
-                .HasForeignKey("CarbonResultId")
-                .HasConstraintName("fk_leg_carbon_result");
 
             entity.HasOne(d => d.RouteLeg).WithMany(p => p.LegCarbons)
                 .HasForeignKey("RouteLegId")
@@ -2623,6 +2589,8 @@ public partial class AppDbContext : DbContext
             entity.HasOne(d => d.Route).WithMany(p => p.ShippingOptions)
                 .HasForeignKey("RouteId")
                 .HasConstraintName("fk_shipping_option_route");
+
+            entity.Ignore(e => e.Checkouts);
         });
 
         modelBuilder.Entity<ShippingPort>(entity =>
