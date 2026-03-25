@@ -154,12 +154,6 @@ VALUES ('TRUCK', 1.5, TRUE, 0.50),
        ('PLANE', 3.0, TRUE, 1.50),
        ('TRAIN', 1.0, TRUE, 0.05);
 
--- Insert carbon result records
-INSERT INTO carbon_result (total_carbon_kg, created_at, validation_passed)
-VALUES (250.50, NOW(), TRUE),
-       (180.75, NOW(), TRUE),
-       (420.30, NOW(), FALSE);
-
 -- Insert product returns
 INSERT INTO product_return (return_status, total_carbon, date_in, date_on)
 VALUES ('PENDING', 45.25, CURRENT_DATE, CURRENT_DATE),
@@ -573,13 +567,17 @@ INSERT INTO BuildingFootprint (timeHourly, zone, block, floor, room, totalRoomCo
 INSERT INTO EcoBadge (maxCarbonG, criteriaDescription, badgeName) VALUES
 ('120.0', 'Low carbon product footprint that meets premium sustainability targets.', 'Gold Eco'),
 ('180.0', 'Moderate carbon product footprint within acceptable operating limits.', 'Silver Eco'),
-('260.0', 'Higher carbon product footprint that still meets minimum green baseline.', 'Bronze Eco');
+('250.0', 'Higher carbon product footprint that still meets minimum green baseline.', 'Bronze Eco'),
+('999.0', 'Standard product footprint for general use.', 'Standard');
 
 --Product footprint--
 INSERT INTO ProductFootprint (productID, badgeId, productToxicPercentage, totalCo2, calculatedAt) VALUES
 (1, 2, 4.2, 165.4, '2026-03-20 08:00:00+08'),
 (2, 2, 4.9, 172.8, '2026-03-21 08:00:00+08'),
-(3, 1, 2.6, 118.3, '2026-03-22 08:00:00+08');
+(3, 1, 2.6, 118.3, '2026-03-22 08:00:00+08'),
+(4, 3, 6.8, 220.7, '2026-03-22 10:00:00+08'),
+(5, 3, 6.8, 220.7, '2026-03-22 10:00:00+08'),
+(7, 4, 12.5, 315.0, '2026-03-22 11:00:00+08');
 
 
 --StaffAccessLog--
@@ -593,6 +591,28 @@ INSERT INTO StaffFootprint (staffId, time, hoursWorked, totalStaffCo2) VALUES
 (1, '2026-03-20 12:00:00+08', 4.0, 14.2),
 (2, '2026-03-21 12:00:00+08', 3.5, 12.8),
 (3, '2026-03-22 12:00:00+08', 5.0, 16.9);
+
+-- Rewards Dashboard Seed Data --
+
+-- Order Carbon Data
+INSERT INTO ordercarbondata (orderid, productcarbon, packagingcarbon, staffcarbon, buildingcarbon, totalcarbon, impactlevel, calculatedat) VALUES
+(1,  0, 0, 10.5, 5.2,  15.7,  'Low',       NOW()),
+(2,  0, 0, 8.3,  4.1,  12.4,  'Low',       NOW()),
+(3,  0, 0, 9.1,  3.8,  12.9,  'Low',       NOW()),
+(4,  0, 0, 11.2, 6.0,  17.2,  'Low',       NOW()),
+(5,  0, 0, 7.5,  3.5,  11.0,  'Low',       NOW()),
+(6,  0, 0, 95.0, 45.0, 140.0, 'High',      NOW()),
+(7,  0, 0, 55.0, 25.0, 80.0,  'Moderate',  NOW()),
+(8,  0, 0, 210.0,90.0, 300.0, 'Very High', NOW());
+
+-- Customer Rewards (Low = $10, Moderate = $5)
+INSERT INTO customerrewards (customerid, ordercarbondataid, rewardtype, rewardvalue, createdat)
+SELECT o.customerid, cd.ordercarbondataid, 'Voucher',
+    CASE cd.impactlevel WHEN 'Low' THEN 10.0 WHEN 'Moderate' THEN 5.0 END,
+    NOW()
+FROM ordercarbondata cd
+JOIN "Order" o ON o.orderid = cd.orderid
+WHERE cd.impactlevel IN ('Low', 'Moderate');
 
 --Packaging Material--
 INSERT INTO PackagingMaterial (name, type, recyclable, reusable)
@@ -617,6 +637,55 @@ VALUES
 ('Equipment Transport Carton', 'Paper', TRUE, FALSE),
 ('Reusable Camera Transport Box', 'Plastic', TRUE, TRUE),
 ('Shock Absorbing Packing Foam', 'Foam', FALSE, FALSE);
+
+--Packaging Profile--
+WITH inserted_profiles AS (
+    INSERT INTO packagingprofile (orderid, volume, fragilitylevel) VALUES
+    (1, 2.5, 'high'),
+    (2, 1.2, 'medium'),
+    (3, 0.8, 'low'),
+    (4, 3.0, 'high'),
+    (5, 1.5, 'medium')
+    RETURNING profileid, orderid
+),
+
+--Packaging Configuration--
+inserted_configs AS (
+    INSERT INTO packagingconfiguration (profileid)
+    SELECT profileid FROM inserted_profiles
+    ORDER BY orderid
+    RETURNING configurationid, profileid
+),
+
+--Packaging Configuration Map--
+config_map AS (
+    SELECT ic.configurationid, ip.orderid
+    FROM inserted_configs ic
+    JOIN inserted_profiles ip ON ic.profileid = ip.profileid
+)
+
+--Packaging Materials Map--
+INSERT INTO packagingconfigmaterials (configurationid, materialid, category, quantity)
+SELECT c.configurationid, m.materialid, m.category, m.quantity
+FROM config_map c
+JOIN (VALUES
+    (1,  1,  'primary',   1),
+    (1,  2,  'secondary', 1),
+    (1,  5,  'secondary', 2),
+    (2,  6,  'primary',   1),
+    (2,  5,  'secondary', 1),
+    (2,  3,  'secondary', 1),
+    (3,  18, 'primary',   1),
+    (3,  5,  'secondary', 2),
+    (4,  9,  'primary',   1),
+    (4,  4,  'secondary', 1),
+    (4,  11, 'secondary', 1),
+    (5,  8,  'primary',   1),
+    (5,  7,  'secondary', 1),
+    (5,  18, 'secondary', 1)
+) AS m(orderid, materialid, category, quantity)
+ON c.orderid = m.orderid;
+
 
 -- Team 2-2 Seed Data
 -- PURCHASE ORDERS & STOCK
