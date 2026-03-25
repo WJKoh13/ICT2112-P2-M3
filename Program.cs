@@ -10,14 +10,30 @@ using Npgsql;
 using ProRental.Configuration.Module3.P2_1;
 using ProRental.Domain.Enums;
 using ProRental.Domain.Entities;
+<<<<<<< HEAD
 using ProRental.Testing;
 using ProRental.Interfaces.Module3.P2_1;
+=======
+using ProRental.Interfaces.Data;
+using ProRental.Data;
+using ProRental.Interfaces.Domain;
+using ProRental.Domain.Controls;
+using ProRental.Controllers.Module1;
+using ProRental.Data.Services;
+
+>>>>>>> origin/p2-1/Staging
 
 // uncomment when ready to code
 // using ProRental.Data;
 // using ProRental.Domain.Controls;
+<<<<<<< HEAD
 // using ProRental.Domain.Entities;
 // using ProRental.Interfaces.Module3.P2_1;
+=======
+// //using ProRental.Domain.Entities;
+// using ProRental.Interfaces.Domain;
+// using ProRental.Interfaces.Data;
+>>>>>>> origin/p2-1/Staging
 // using ProRental.Controllers;
 
 //p2-1 feat 1 test
@@ -218,11 +234,38 @@ builder.Services.AddScoped<IBatchDelivery, BatchConsolidationManager>();
 
 //Team P2-6
 // Data source
+// builder.Services.AddScoped<IOrderMapper, OrderMapper>();
+// builder.Services.AddScoped<IOrderService, OrderManagementControl>();
+// builder.Services.AddScoped<IInventoryService, FakeInventoryService>();
+// // Domain
 
-// Domain
+// // Presentation/Controllers
+// builder.Services.AddScoped<IOrderService, OrderManagementControl>();
+
+// Data source (mappers / DB-backed service implementations)
+builder.Services.AddScoped<ISessionMapper, SessionMapper>();
+builder.Services.AddScoped<IAuthenticationService, ProRentalAuthenticationService>();
+builder.Services.AddScoped<ICustomerValidationService, CustomerValidationService>();
+
+// Domain (controls — pure business logic, no DB dependency)
+builder.Services.AddScoped<ISessionService, SessionControl>();
+builder.Services.AddScoped<AuthenticationControl>();
+builder.Services.AddScoped<CustomerIDValidationControl>();
+
+// HTTP context accessor (required for session access in Razor layouts)
+builder.Services.AddHttpContextAccessor();
+
+// Session middleware (required for HttpContext.Session)
+builder.Services.AddSession(options =>
+{
+    options.IdleTimeout = TimeSpan.FromHours(2);
+    options.Cookie.HttpOnly = true;
+    options.Cookie.IsEssential = true;
+    options.Cookie.SameSite = SameSiteMode.Lax;
+});
 
 // Presentation/Controllers
-
+builder.Services.AddScoped<Module1Controller>();
 
 var app = builder.Build();
 
@@ -241,8 +284,8 @@ else
 
 app.UseHttpsRedirection();
 app.UseStaticFiles();
+app.UseSession();      
 app.UseRouting();
-
 app.UseAuthorization();
 
 app.MapControllerRoute(

@@ -116,6 +116,15 @@ public partial class AppDbContext
                   .HasColumnName("status").HasColumnType("inventory_status");
         });
 
+<<<<<<<<< Temporary merge branch 1
+        modelBuilder.Entity<LegCarbon>(entity =>
+        {
+            entity.Property("TransportMode").HasField("_transportMode").UsePropertyAccessMode(PropertyAccessMode.Field)
+                  .HasColumnName("transport_mode").HasColumnType("transport_mode");
+        });
+=========
+>>>>>>>>> Temporary merge branch 2
+
         modelBuilder.Entity<Lineitem>(entity =>
         {
             entity.Property("reason").HasField("_reason").UsePropertyAccessMode(PropertyAccessMode.Field)
