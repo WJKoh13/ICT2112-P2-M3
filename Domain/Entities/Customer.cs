@@ -21,10 +21,7 @@ public partial class Customer
 
     public virtual ICollection<CustomerChoice> CustomerChoices { get; private set; } = new List<CustomerChoice>();
 
-
     public virtual ICollection<Checkout> Checkouts { get; private set; } = new List<Checkout>();
-
-    public virtual ICollection<CustomerChoice> CustomerChoices { get; private set; } = new List<CustomerChoice>();
 
     public virtual ICollection<Customerreward> Customerrewards { get; private set; } = new List<Customerreward>();
 

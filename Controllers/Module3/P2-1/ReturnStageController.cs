@@ -11,7 +11,6 @@ public class ReturnStageController : Controller
 
     public ReturnStageController(
         IReturnStageGateway gateway,
-        ReturnStageCalculator calculator,
         ReturnCarbonReportService reportService)
     {
         _gateway = gateway;

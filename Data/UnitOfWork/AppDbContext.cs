@@ -607,9 +607,9 @@ public partial class AppDbContext : DbContext
             entity.Property("Customerid")
                 .HasField("_customerid")
                 .UsePropertyAccessMode(PropertyAccessMode.Field).HasColumnName("customerid");
-            entity.Property("Deliveryid")
-                .HasField("_deliveryid")
-                .UsePropertyAccessMode(PropertyAccessMode.Field).HasColumnName("deliveryid");
+            entity.Property("OptionId")
+                .HasField("_optionId")
+                .UsePropertyAccessMode(PropertyAccessMode.Field).HasColumnName("option_id");
             entity.Property("Notifyoptin")
                 .HasField("_notifyoptin")
                 .UsePropertyAccessMode(PropertyAccessMode.Field)
@@ -625,8 +625,8 @@ public partial class AppDbContext : DbContext
                 .OnDelete(DeleteBehavior.Restrict)
                 .HasConstraintName("fk_checkout_customer");
 
-            entity.HasOne(d => d.Delivery).WithMany(p => p.Checkouts)
-                .HasForeignKey("Deliveryid")
+            entity.HasOne(d => d.Option).WithMany(p => p.Checkouts)
+                .HasForeignKey("OptionId")
                 .OnDelete(DeleteBehavior.Restrict)
                 .HasConstraintName("fk_checkout_delivery");
         });
