@@ -16,4 +16,14 @@ public partial class CarbonResult
 
     private bool _validationPassed;
     private bool ValidationPassed { get => _validationPassed; set => _validationPassed = value; }
+    private double? _totalCarbonKg;
+    private double? TotalCarbonKg { get => _totalCarbonKg; set => _totalCarbonKg = value; }
+
+    private DateTime? _createdAt;
+    private DateTime? CreatedAt { get => _createdAt; set => _createdAt = value; }
+
+    private bool? _validationPassed;
+    private bool? ValidationPassed { get => _validationPassed; set => _validationPassed = value; }
+
+    public virtual ICollection<LegCarbon> LegCarbons { get; private set; } = new List<LegCarbon>();
 }

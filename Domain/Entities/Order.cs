@@ -33,6 +33,15 @@ public partial class Order
 
     public virtual ICollection<Deliverymethod> Deliverymethods { get; private set; } = new List<Deliverymethod>();
 
+    public virtual ICollection<CustomerChoice> CustomerChoices { get; private set; } = new List<CustomerChoice>();
+
+    public virtual ICollection<CustomerChoice> CustomerChoices { get; private set; } = new List<CustomerChoice>();
+
+<<<<<<< HEAD
+    public virtual ICollection<Deliverymethod> Deliverymethods { get; private set; } = new List<Deliverymethod>();
+
+=======
+>>>>>>> origin/p2-1/feature/carbonCalculation
     public virtual ICollection<Deposit> Deposits { get; private set; } = new List<Deposit>();
 
     public virtual ICollection<Loanlist> Loanlists { get; private set; } = new List<Loanlist>();

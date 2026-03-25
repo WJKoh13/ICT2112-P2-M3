@@ -14,6 +14,7 @@ using ProRental.Domain.Controls;
 using ProRental.Domain.Entities;
 using ProRental.Domain.Enums;
 using ProRental.Domain.Module3.P2_1.Mocks;
+using ProRental.Interfaces;
 using ProRental.Interfaces.Module3.P2_1;
 using ProRental.Models.Module3.P2_1;
 using System.Reflection;
@@ -87,6 +88,16 @@ internal static class PhaseTestRunner
 }
 
 internal sealed record PhaseTest(string Name, Action Action);
+
+internal sealed class StubHubCarbonService : IHubCarbonService
+{
+    public double CalculateHubCarbon(int hubId, double hours) => 0d;
+    public double CalculateProductStorageCarbon(int productId, int hubId) => 10d;
+    public List<ItemCarbonInfo> GetProductItemCarbonBreakdown(int productId, int hubId) => [];
+    public List<ItemCarbonInfo> RecommendItemsToClear(int hubId) => [];
+    public List<ProductTimeInfo> GetProductTimeInWarehouse(int hubId) => [];
+    public List<ProductStorageInfo> GetAllProductStorageInfo() => [];
+}
 
 // Phase 0 locks down the grouped entity accessors and EF mappings that Feature 1 relies on.
 internal static class Phase0Tests
@@ -281,7 +292,7 @@ internal static class Phase1Tests
         AssertMethod(transportCarbonService, "CalculateRouteCarbon", typeof(double), typeof(IReadOnlyList<double>));
         AssertMethod(transportCarbonService, "CalculateLegCarbonSurcharge", typeof(double), typeof(int), typeof(double), typeof(double), typeof(double), typeof(TransportMode));
         AssertMethod(transportCarbonService, "CalculateTotalCarbonSurcharge", typeof(double), typeof(IReadOnlyList<double>));
-        AssertMethod(transportCarbonService, "CalculateRouteQuote", typeof(RouteQuoteResult), typeof(DeliveryRoute), typeof(int), typeof(double));
+        AssertMethod(transportCarbonService, "CalculateRouteQuote", typeof(RouteQuoteResult), typeof(DeliveryRoute), typeof(int), typeof(double), typeof(int), typeof(int));
     }
 
     private static void AssertMethod(Type type, string name, Type returnType, params Type[] parameterTypes)
@@ -581,7 +592,7 @@ internal static class Phase4Tests
 
     private static void TransportCarbonManagerCalculatesLegSurchargeByTransportType()
     {
-        var manager = new ProRental.Domain.Module3.P2_1.Controls.TransportCarbonManager(new StubPricingRuleGateway());
+        var manager = new ProRental.Domain.Module3.P2_1.Controls.TransportCarbonManager(new StubPricingRuleGateway(), new StubHubCarbonService());
 
         var truckSurcharge = manager.CalculateLegCarbonSurcharge(2, 5.0, 10.0, 3.0, TransportMode.TRUCK);
         var shipSurcharge = manager.CalculateLegCarbonSurcharge(2, 5.0, 10.0, 3.0, TransportMode.SHIP);
@@ -596,7 +607,7 @@ internal static class Phase4Tests
 
     private static void TransportCarbonManagerSumsLegSurcharges()
     {
-        var manager = new ProRental.Domain.Module3.P2_1.Controls.TransportCarbonManager(new StubPricingRuleGateway());
+        var manager = new ProRental.Domain.Module3.P2_1.Controls.TransportCarbonManager(new StubPricingRuleGateway(), new StubHubCarbonService());
 
         var truckSurcharge = manager.CalculateLegCarbonSurcharge(2, 5.0, 10.0, 3.0, TransportMode.TRUCK);
         var shipSurcharge = manager.CalculateLegCarbonSurcharge(2, 5.0, 10.0, 3.0, TransportMode.SHIP);
@@ -610,7 +621,7 @@ internal static class Phase4Tests
     private static void ShippingOptionManagerReturnsPreferenceCardsWithoutRouting()
     {
         var repository = new InMemoryShippingOptionMapper();
-        var orderService = new StubOrderService(new OrderShippingContext(10, 20, 30, "Singapore", 5.5, 2));
+        var orderService = new StubOrderService(new OrderShippingContext(10, 20, 30, "Singapore", 101, 202, 5.5, 2));
         var routingService = new StubRoutingService();
         var transportCarbonService = new StubTransportCarbonService();
         var manager = new ShippingOptionManager(repository, orderService, routingService, transportCarbonService);
@@ -630,7 +641,7 @@ internal static class Phase4Tests
     {
         var repository = new InMemoryShippingOptionMapper();
         repository.Order = CreateOrder(10, 30, 20);
-        var orderService = new StubOrderService(new OrderShippingContext(10, 20, 30, "Singapore", 5.5, 2));
+        var orderService = new StubOrderService(new OrderShippingContext(10, 20, 30, "Singapore", 101, 202, 5.5, 2));
         var routingService = new StubRoutingService();
         var transportCarbonService = new StubTransportCarbonService();
         var manager = new ShippingOptionManager(repository, orderService, routingService, transportCarbonService);
@@ -657,7 +668,7 @@ internal static class Phase4Tests
         var transportCarbonService = new StubTransportCarbonService();
         var manager = new ShippingOptionManager(
             repository,
-            new StubOrderService(new OrderShippingContext(10, 20, 30, "Singapore", 5.5, 2)),
+            new StubOrderService(new OrderShippingContext(10, 20, 30, "Singapore", 101, 202, 5.5, 2)),
             routingService,
             transportCarbonService);
 
@@ -829,7 +840,7 @@ internal static class Phase4Tests
         public List<IReadOnlyList<double>> RouteRequests { get; } = [];
         public List<(int Quantity, double WeightKg, double DistanceKm, double StorageCo2, TransportMode TransportMode)> LegSurchargeRequests { get; } = [];
         public List<IReadOnlyList<double>> TotalSurchargeRequests { get; } = [];
-        public List<(DeliveryRoute Route, int Quantity, double WeightKg)> RouteQuoteRequests { get; } = [];
+        public List<(DeliveryRoute Route, int Quantity, double WeightKg, int ProductId, int HubId)> RouteQuoteRequests { get; } = [];
 
         public double CalculateLegCarbon(int quantity, double weightKg, double distanceKm, double storageCo2)
         {
@@ -865,9 +876,9 @@ internal static class Phase4Tests
             return legSurcharges.Sum();
         }
 
-        public RouteQuoteResult CalculateRouteQuote(DeliveryRoute route, int quantity, double weightKg)
+        public RouteQuoteResult CalculateRouteQuote(DeliveryRoute route, int quantity, double weightKg, int productId, int hubId)
         {
-            RouteQuoteRequests.Add((route, quantity, weightKg));
+            RouteQuoteRequests.Add((route, quantity, weightKg, productId, hubId));
             return new RouteQuoteResult(18m + RouteQuoteRequests.Count, 4.2d + RouteQuoteRequests.Count);
         }
     }
@@ -1025,6 +1036,7 @@ internal static class Phase6Tests
         var services = new ServiceCollection();
         services.AddDbContext<AppDbContext>(options =>
             options.UseNpgsql("Host=localhost;Database=testrental;Username=test;Password=test"));
+        services.AddScoped<IHubCarbonService, StubHubCarbonService>();
         services.AddFeature1Services();
 
         using var provider = services.BuildServiceProvider();
@@ -1111,7 +1123,7 @@ internal static class Phase7Tests
             new ShippingOptionMapper(context),
             new ShippingOrderContextService(context),
             new MockRoutingService(context),
-            new ProRental.Domain.Module3.P2_1.Controls.TransportCarbonManager(new PricingRuleGateway(context)));
+            new ProRental.Domain.Module3.P2_1.Controls.TransportCarbonManager(new PricingRuleGateway(context), new StubHubCarbonService()));
     }
 }
 

@@ -9,5 +9,7 @@ public sealed record OrderShippingContext(
     int CustomerId,
     int CheckoutId,
     string DestinationAddress,
+    int ProductId,
+    int HubId,
     double WeightKg,
     int Quantity);

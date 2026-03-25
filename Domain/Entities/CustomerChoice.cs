@@ -11,8 +11,8 @@ public partial class CustomerChoice
     private int _orderId;
     private int OrderId { get => _orderId; set => _orderId = value; }
 
-    private DateTime _createdAt;
-    private DateTime CreatedAt { get => _createdAt; set => _createdAt = value; }
+    private DateTime? _createdAt;
+    private DateTime? CreatedAt { get => _createdAt; set => _createdAt = value; }
 
     public virtual Customer Customer { get; private set; } = null!;
 
