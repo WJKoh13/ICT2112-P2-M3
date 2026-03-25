@@ -98,13 +98,28 @@
        class="btn btn-sm @(!Model.ReturnRequestId.HasValue ? "btn-dark" : "btn-outline-secondary")">
         All
     </a>
-    @foreach (var id in Model.AvailableReturnIds)
-    {
-        <a asp-controller="ReturnStage" asp-action="StageBreakdown" asp-route-returnRequestId="@id"
-           class="btn btn-sm @(Model.ReturnRequestId == id ? "btn-dark" : "btn-outline-secondary")">
-            #@id
-        </a>
-    }
+    <select class="form-select form-select-sm w-auto"
+            onchange="if(this.value) window.location.href='@Url.Action("StageBreakdown","ReturnStage")?returnRequestId='+this.value">
+        @if (!Model.ReturnRequestId.HasValue)
+        {
+            <option value="" disabled selected>Select Return ID…</option>
+        }
+        else
+        {
+            <option value="" disabled>Select Return ID…</option>
+        }
+        @foreach (var id in Model.AvailableReturnIds)
+        {
+            if (Model.ReturnRequestId == id)
+            {
+                <option value="@id" selected>#@id</option>
+            }
+            else
+            {
+                <option value="@id">#@id</option>
+            }
+        }
+    </select>
 </div>
 
 <!-- Stage breakdown table -->
@@ -129,28 +144,75 @@
                 </tr>
             </thead>
             <tbody>
-                @foreach (var stage in Model.Stages)
+                @if (!Model.ReturnRequestId.HasValue)
                 {
-                    <tr class="@(stage.IsHighCarbon ? "high-carbon-row" : "")">
-                        <td><span class="stage-badge stage-@stage.StageType">@stage.StageLabel</span></td>
-                        <td class="text-end text-muted small">@stage.EnergyCarbon.ToString("F4")</td>
-                        <td class="text-end text-muted small">@stage.LabourCarbon.ToString("F4")</td>
-                        <td class="text-end text-muted small">@stage.MaterialsCarbon.ToString("F4")</td>
-                        <td class="text-end text-muted small">@stage.WaterCarbon.ToString("F4")</td>
-                        <td class="text-end text-muted small">@stage.CleaningSuppliesCarbon.ToString("F4")</td>
-                        <td class="text-end text-muted small">@stage.PackagingCarbon.ToString("F4")</td>
-                        <td class="text-end fw-semibold">@stage.TotalCarbon.ToString("F4")</td>
-                        <td class="text-center">
-                            @if (stage.IsHighCarbon)
-                            {
-                                <span class="badge bg-danger"><i class="bi bi-exclamation-circle me-1"></i>High</span>
-                            }
-                            else
-                            {
-                                <span class="badge bg-success"><i class="bi bi-check2 me-1"></i>OK</span>
-                            }
-                        </td>
-                    </tr>
+                    @* All view: group by stage type and show combined totals *@
+                    var grouped = Model.Stages
+                        .GroupBy(s => s.StageType)
+                        .OrderBy(g => g.Key?.ToString());
+                    @foreach (var group in grouped)
+                    {
+                        var energy    = group.Sum(s => s.EnergyCarbon);
+                        var labour    = group.Sum(s => s.LabourCarbon);
+                        var materials = group.Sum(s => s.MaterialsCarbon);
+                        var water     = group.Sum(s => s.WaterCarbon);
+                        var cleaning  = group.Sum(s => s.CleaningSuppliesCarbon);
+                        var packaging = group.Sum(s => s.PackagingCarbon);
+                        var total     = group.Sum(s => s.TotalCarbon);
+                        var isHigh    = group.Any(s => s.IsHighCarbon);
+                        var label     = group.FirstOrDefault()?.StageLabel ?? "Unknown";
+                        var stageKey  = group.Key?.ToString() ?? "unknown";
+                        <tr class="@(isHigh ? "high-carbon-row" : "")">
+                            <td>
+                                <span class="stage-badge stage-@stageKey">@label</span>
+                                <span class="ms-1 text-muted small">×@group.Count()</span>
+                            </td>
+                            <td class="text-end text-muted small">@energy.ToString("F4")</td>
+                            <td class="text-end text-muted small">@labour.ToString("F4")</td>
+                            <td class="text-end text-muted small">@materials.ToString("F4")</td>
+                            <td class="text-end text-muted small">@water.ToString("F4")</td>
+                            <td class="text-end text-muted small">@cleaning.ToString("F4")</td>
+                            <td class="text-end text-muted small">@packaging.ToString("F4")</td>
+                            <td class="text-end fw-semibold">@total.ToString("F4")</td>
+                            <td class="text-center">
+                                @if (isHigh)
+                                {
+                                    <span class="badge bg-danger"><i class="bi bi-exclamation-circle me-1"></i>High</span>
+                                }
+                                else
+                                {
+                                    <span class="badge bg-success"><i class="bi bi-check2 me-1"></i>OK</span>
+                                }
+                            </td>
+                        </tr>
+                    }
+                }
+                else
+                {
+                    @* Specific return ID: show each stage individually *@
+                    @foreach (var stage in Model.Stages)
+                    {
+                        <tr class="@(stage.IsHighCarbon ? "high-carbon-row" : "")">
+                            <td><span class="stage-badge stage-@stage.StageType">@stage.StageLabel</span></td>
+                            <td class="text-end text-muted small">@stage.EnergyCarbon.ToString("F4")</td>
+                            <td class="text-end text-muted small">@stage.LabourCarbon.ToString("F4")</td>
+                            <td class="text-end text-muted small">@stage.MaterialsCarbon.ToString("F4")</td>
+                            <td class="text-end text-muted small">@stage.WaterCarbon.ToString("F4")</td>
+                            <td class="text-end text-muted small">@stage.CleaningSuppliesCarbon.ToString("F4")</td>
+                            <td class="text-end text-muted small">@stage.PackagingCarbon.ToString("F4")</td>
+                            <td class="text-end fw-semibold">@stage.TotalCarbon.ToString("F4")</td>
+                            <td class="text-center">
+                                @if (stage.IsHighCarbon)
+                                {
+                                    <span class="badge bg-danger"><i class="bi bi-exclamation-circle me-1"></i>High</span>
+                                }
+                                else
+                                {
+                                    <span class="badge bg-success"><i class="bi bi-check2 me-1"></i>OK</span>
+                                }
+                            </td>
+                        </tr>
+                    }
                 }
             </tbody>
             <tfoot class="table-light">
