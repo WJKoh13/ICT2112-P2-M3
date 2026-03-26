@@ -89,6 +89,25 @@
         .chart-canvas-wrap-hotspot {
             min-height: 320px;
         }
+
+        .hotspot-thresholds {
+            background: #f1f7f4;
+            border: 1px solid #d8ebe0;
+            border-radius: 0.9rem;
+            color: #2b5a4a;
+            font-size: 0.9rem;
+            min-width: 220px;
+            padding: 0.75rem 1rem;
+        }
+
+        .hotspot-thresholds .threshold-label {
+            font-weight: 700;
+            margin-bottom: 0.4rem;
+        }
+
+        .hotspot-thresholds .threshold-item {
+            line-height: 1.4;
+        }
     </style>
 </head>
 <body>
@@ -232,8 +251,22 @@
 
             <div class="card chart-card">
                 <div class="card-body p-4">
-                    <h2 class="h4 mb-1">Carbon Hotspot Chart</h2>
-                    <p class="text-muted mb-4">Summary of total carbon footprint across product, building, staff, and packaging.</p>
+                    <div class="d-flex flex-wrap justify-content-between align-items-start gap-3">
+                        <div>
+                            <h2 class="h4 mb-1">Carbon Hotspot Chart</h2>
+                            <p class="text-muted mb-4">Summary of total carbon footprint across product, building, staff, and packaging.</p>
+                        </div>
+                        @if (Model?.HotspotThresholds.Count > 0)
+                        {
+                            <div class="hotspot-thresholds">
+                                <div class="threshold-label">Thresholds</div>
+                                @foreach (var threshold in Model.HotspotThresholds)
+                                {
+                                    <div class="threshold-item">@threshold.Label threshold : @threshold.Value.ToString("0")</div>
+                                }
+                            </div>
+                        }
+                    </div>
                     @if (Model?.HotspotAlerts.Count > 0)
                     {
                         <div id="hotspotThresholdAlert" class="alert alert-danger" role="alert">
@@ -395,35 +428,7 @@
         new Chart(document.getElementById('staffPieChart'), { type: 'doughnut', plugins: [piePercentagePlugin], data: { labels: staffPieData.map(item => item.label), datasets: [{ data: staffPieData.map(item => item.value), backgroundColor: palette, borderWidth: 0, radius: '78%', cutout: '60%' }] }, options: { responsive: true, maintainAspectRatio: false, layout: { padding: { top: 12, right: 12, bottom: 12, left: 12 } }, plugins: { legend: pieLegendOptions, tooltip: { callbacks: { label(context) { const value = Number(context.raw ?? 0); const total = context.dataset.data.reduce((sum, item) => sum + Number(item), 0); const percentage = total ? ((value / total) * 100).toFixed(1) : '0.0'; return `${context.label}: ${value} CO2 (${percentage}%)`; } } } } } });
         new Chart(document.getElementById('packagingBarChart'), { type: 'bar', data: { labels: packagingBarData.map(item => item.label), datasets: [{ data: packagingBarData.map(item => item.value), backgroundColor: palette, borderRadius: 10, categoryPercentage: 0.9, barPercentage: 0.9 }] }, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { x: { title: { display: true, text: 'Material', color: chartTextColor, font: axisTitleFont }, ticks: { color: chartTextColor, font: { size: 8, weight: '600' }, autoSkip: false, maxRotation: 0, minRotation: 0, callback(value) { const label = this.getLabelForValue(value); return typeof label === 'string' ? label.split(' ') : label; } }, grid: { display: false } }, y: { title: { display: true, text: 'CO2', color: chartTextColor, font: axisTitleFont }, ticks: { color: chartTextColor, font: { size: 9, weight: '600' } }, grid: { color: gridColor }, beginAtZero: true } } } });
         new Chart(document.getElementById('packagingPieChart'), { type: 'doughnut', plugins: [piePercentagePlugin], data: { labels: packagingPieData.map(item => item.label), datasets: [{ data: packagingPieData.map(item => item.value), backgroundColor: palette, borderWidth: 0, radius: '78%', cutout: '60%' }] }, options: { responsive: true, maintainAspectRatio: false, layout: { padding: { top: 12, right: 12, bottom: 12, left: 12 } }, plugins: { legend: pieLegendOptions, tooltip: { callbacks: { label(context) { const value = Number(context.raw ?? 0); const total = context.dataset.data.reduce((sum, item) => sum + Number(item), 0); const percentage = total ? ((value / total) * 100).toFixed(1) : '0.0'; return `${context.label}: ${value} CO2 (${percentage}%)`; } } } } } });
-        const hotspotThresholdPlugin = {
-            id: 'hotspotThresholdPlugin',
-            afterDatasetsDraw(chart) {
-                if (chart.canvas?.id !== 'hotspotChart') return;
-                const { ctx } = chart;
-                const meta = chart.getDatasetMeta(0);
-                const labels = chart.data.labels || [];
-                const thresholdMap = new Map(hotspotThresholds.map(item => [item.label, item.value]));
-
-                ctx.save();
-                ctx.fillStyle = '#35584a';
-                ctx.font = '600 11px sans-serif';
-                ctx.textAlign = 'left';
-                ctx.textBaseline = 'middle';
-
-                meta.data.forEach((bar, i) => {
-                    const label = labels[i];
-                    if (!label || !thresholdMap.has(label)) return;
-                    const value = thresholdMap.get(label);
-                    const text = `Threshold: ${Number(value).toFixed(0)}`;
-                    const x = Math.min(bar.x + 8, chart.chartArea.right - 4);
-                    const y = bar.y;
-                    ctx.fillText(text, x, y);
-                });
-                ctx.restore();
-            }
-        };
-
-        new Chart(document.getElementById('hotspotChart'), { type: 'bar', plugins: [hotspotThresholdPlugin], data: { labels: hotspotData.map(item => item.label), datasets: [{ data: hotspotData.map(item => item.value), backgroundColor: ['#ff9f1c', '#ffbf69', '#2ec4b6', '#5b8e7d', '#1a936f', '#8ecae6'], borderRadius: 10 }] }, options: { indexAxis: 'y', responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { x: { title: { display: true, text: 'Total CO2', color: chartTextColor, font: axisTitleFont }, ticks: { color: chartTextColor, font: tickFont }, grid: { color: gridColor }, beginAtZero: true }, y: { title: { display: true, text: 'Segment', color: chartTextColor, font: axisTitleFont }, ticks: { color: chartTextColor, font: tickFont }, grid: { display: false } } } } });
+        new Chart(document.getElementById('hotspotChart'), { type: 'bar', data: { labels: hotspotData.map(item => item.label), datasets: [{ data: hotspotData.map(item => item.value), backgroundColor: ['#ff9f1c', '#ffbf69', '#2ec4b6', '#5b8e7d', '#1a936f', '#8ecae6'], borderRadius: 10 }] }, options: { indexAxis: 'y', responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { x: { title: { display: true, text: 'Total CO2', color: chartTextColor, font: axisTitleFont }, ticks: { color: chartTextColor, font: tickFont }, grid: { color: gridColor }, beginAtZero: true }, y: { title: { display: true, text: 'Segment', color: chartTextColor, font: axisTitleFont }, ticks: { color: chartTextColor, font: tickFont }, grid: { display: false } } } } });
 
         @if (Model?.HotspotAlerts.Count > 0)
         {
