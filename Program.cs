@@ -7,25 +7,26 @@ using ProRental.Domain.Module3.P2_1.Factories;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Storage;
 using Npgsql;
-using ProRental.Configuration.Module3.P2_1;
-using ProRental.Domain.Enums;
-using ProRental.Domain.Entities;
-using ProRental.Testing;
-using ProRental.Interfaces.Module3.P2_1;
-using ProRental.Interfaces.Data;
-using ProRental.Data;
-using ProRental.Interfaces.Domain;
-using ProRental.Domain.Controls;
-using ProRental.Controllers.Module1;
+using ProRental.Data.Module3.P2_5.Gateways;
+using ProRental.Data.Module3.P2_5.Interfaces;
 using ProRental.Data.Services;
+using ProRental.Domain.Enums;
+using ProRental.Domain.Module2.P2_3.Controls;
+using ProRental.Domain.Module2.P2_3.Mappers;
+using ProRental.Domain.Module3.P2_5.Controls;
+using ProRental.Domain.Entities;
+using ProRental.Interfaces.Data.Module3.P2_5;
+using ProRental.Interfaces.Module2.P2_3;
+using ProRental.Interfaces.Module3.P2_5;
 
 // uncomment when ready to code
-// using ProRental.Data;
-// using ProRental.Domain.Controls;
+using ProRental.Data;
+using ProRental.Domain.Controls;
 // using ProRental.Domain.Entities;
-// using ProRental.Interfaces.Domain;
-// using ProRental.Interfaces.Data;
+using ProRental.Interfaces.Domain;
+using ProRental.Interfaces.Data;
 // using ProRental.Controllers;
+using ProRental.Controllers.Module1;
 
 //p2-1 feat 1 test
 
@@ -206,6 +207,8 @@ builder.Services.AddScoped<IBatchDelivery, BatchConsolidationManager>();
 // Data source
 
 // Domain
+builder.Services.AddScoped<IProductCatalogMapper, ProductCatalogMapper>();
+builder.Services.AddScoped<IProductCatalogService, ProductCatalogControl>();
 
 // Presentation/Controllers
 
@@ -220,8 +223,25 @@ builder.Services.AddScoped<IBatchDelivery, BatchConsolidationManager>();
 
 //Team P2-5
 // Data source
+builder.Services.AddScoped<IBuildingFootprintGateway, BuildingFootprintGateway>();
+builder.Services.AddScoped<ICatalogGateway, CatalogGateway>();
+builder.Services.AddScoped<IProductCatalogGateway, ProductCatalogGateway>();
+builder.Services.AddScoped<IProductFootprintGateway, ProductFootprintGateway>();
+builder.Services.AddScoped<IStaffFootprintGateway, StaffFootprintGateway>();
+builder.Services.AddScoped<IOrderCarbonDataGateway, OrderCarbonDataGateway>();
+builder.Services.AddScoped<IRewardGateway, RewardGateway>();
+builder.Services.AddScoped<IOrderGateway, OrderGateway>();
+builder.Services.AddScoped<IPackagingMaterialGateway, PackagingMaterialGateway>();
+builder.Services.AddScoped<IPackagingProfileGateway, PackagingProfileGateway>();
+builder.Services.AddScoped<IPackagingConfigurationGateway, PackagingConfigurationGateway>();
 
 // Domain
+builder.Services.AddScoped<ICarbonChartControl, CarbonChartControl>();
+builder.Services.AddScoped<IProductFootprintCalculatorService, ProductFootprintCalculatorControl>();
+builder.Services.AddScoped<IProductFootprintService, ProductFootprintService>();
+builder.Services.AddScoped<IRewardsControl, RewardsControl>();
+builder.Services.AddScoped<IPackagingProfilerControl, PackagingProfilerControl>();
+builder.Services.AddScoped<IPackagingFootprintControl, PackagingFootprintControl>();
 
 // Presentation/Controllers
 
@@ -233,8 +253,10 @@ builder.Services.AddScoped<IBatchDelivery, BatchConsolidationManager>();
 // builder.Services.AddScoped<IInventoryService, FakeInventoryService>();
 // // Domain
 
-// // Presentation/Controllers
-// builder.Services.AddScoped<IOrderService, OrderManagementControl>();
+// Module 1 order service — provides order + product data for packaging profile creation
+builder.Services.AddScoped<ProRental.Data.Module1.Interfaces.IOrderService, ProRental.Data.Module1.Gateways.OrderService>();
+
+// Domain
 
 // Data source (mappers / DB-backed service implementations)
 builder.Services.AddScoped<ISessionMapper, SessionMapper>();
@@ -282,8 +304,19 @@ app.UseSession();
 app.UseRouting();
 app.UseAuthorization();
 
+app.MapControllers();
+
+app.MapControllerRoute(
+    name: "eco-catalog",
+    pattern: "catalog/eco",
+    defaults: new { controller = "CatalogPage", action = "Eco" });
+
 app.MapControllerRoute(
     name: "default",
     pattern: "{controller=Home}/{action=Index}/{id?}");
 
 app.Run();
+
+
+
+
