@@ -3,7 +3,6 @@ using ProRental.Data.Module3.P2_1.Gateways;
 using ProRental.Data.Module3.P2_1.Interfaces;
 using ProRental.Data.Module3.P2_1.Mappers;
 using ProRental.Domain.Module3.P2_1.Controls;
-using ProRental.Domain.Control;
 using ProRental.Domain.Module3.P2_1.Factories;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Storage;
@@ -11,15 +10,14 @@ using Npgsql;
 using ProRental.Configuration.Module3.P2_1;
 using ProRental.Domain.Enums;
 using ProRental.Domain.Entities;
+using ProRental.Testing;
+using ProRental.Interfaces.Module3.P2_1;
 using ProRental.Interfaces.Data;
 using ProRental.Data;
 using ProRental.Interfaces.Domain;
 using ProRental.Domain.Controls;
 using ProRental.Controllers.Module1;
 using ProRental.Data.Services;
-
-using ProRental.Testing;
-using ProRental.Interfaces.Module3.P2_1;
 
 // uncomment when ready to code
 // using ProRental.Data;
@@ -174,22 +172,27 @@ builder.Services.AddScoped<PlaneMapper>();
 builder.Services.AddScoped<TrainMapper>();
 builder.Services.AddScoped<IPricingRuleGateway, PricingRuleGateway>();
 builder.Services.AddScoped<ProRental.Data.Module3.P2_1.Interfaces.IReturnStageGateway, ProRental.Data.Module3.P2_1.Gateways.ReturnStageGateway>();
-builder.Services.AddScoped<ProRental.Domain.Module3.P2_1.Controls.ReturnStageCalculator>();
-builder.Services.AddScoped<ProRental.Domain.Module3.P2_1.Controls.ReturnCarbonReportService>();
-builder.Services.AddScoped<ProRental.Domain.Module3.P2_1.Controls.ReturnStageSurchargeService>();
 
 // Domain
-builder.Services.AddScoped<IHubCarbonService, TransportationHubManager>();
 builder.Services.AddScoped<IRouteDistanceCalculator, RouteDistanceCalculator>();
 builder.Services.AddScoped<ITransportService, TransportationManager>();
 builder.Services.AddScoped<ITransportCarbonService, TransportCarbonManager>();
 builder.Services.AddScoped<TransportationFactory>();
-builder.Services.AddScoped<ProRental.Domain.Module3.P2_1.Controls.ReturnStageCalculator>();
-builder.Services.AddScoped<ProRental.Domain.Module3.P2_1.Controls.ReturnStageSurchargeService>();
-builder.Services.AddScoped<ProRental.Domain.Module3.P2_1.Controls.ReturnCarbonReportService>();
+builder.Services.AddScoped<ReturnStageCalculator>();
+builder.Services.AddScoped<ReturnStageSurchargeService>();
+builder.Services.AddScoped<ReturnCarbonReportService>();
 
 // Presentation/Controllers
 builder.Services.AddScoped<ProRental.Controllers.Module3.P2_1.ReturnStageController>();
+
+// Team P2-1 Feature: Batch Delivery & Consolidation
+builder.Services.AddScoped<IBatchOrderMapper, BatchOrderMapper>();
+builder.Services.AddScoped<IDeliveryBatchMapper, DeliveryBatchMapper>();
+builder.Services.AddScoped<IBatchValidator, BatchValidator>();
+builder.Services.AddScoped<IBatchQueryManager, BatchQueryManager>();
+builder.Services.AddScoped<IBatchDisplayManager, BatchQueryManager>();
+builder.Services.AddScoped<IRouteQueryService, RouteQueryService>();
+builder.Services.AddScoped<IBatchDelivery, BatchConsolidationManager>();
 
 
 //Team P2-2

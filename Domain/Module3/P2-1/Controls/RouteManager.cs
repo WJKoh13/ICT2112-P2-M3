@@ -60,7 +60,7 @@ public sealed class RouteManager : IRoutingService, IRouteQueryService
         }
 
         route.SetTotalDistanceKm((double)Math.Round(
-            (decimal)routeLegs.Sum(routeLeg => routeLeg.GetDistanceKm()),
+            (decimal)(routeLegs.Sum(routeLeg => routeLeg.GetDistanceKm()) ?? 0),
             2,
             MidpointRounding.AwayFromZero));
 
@@ -70,7 +70,7 @@ public sealed class RouteManager : IRoutingService, IRouteQueryService
         return route;
     }
 
-    public RouteLeg RetrieveFirstMileLeg(int routeId)
+    public RouteLeg retrieveFirstMileLeg(int routeId)
     {
         if (routeId <= 0)
         {
