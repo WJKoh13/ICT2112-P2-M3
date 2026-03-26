@@ -10,6 +10,7 @@ namespace ProRental.Domain.Module3.P2_1.Controls;
 public sealed class BatchConsolidationManager : IBatchDelivery
 {
     private const double ConsolidationEfficiencyFactor = 0.75d;
+    private const int ShowcaseFallbackRouteId = 2;
 
     private readonly IBatchValidator _batchValidator;
     private readonly IOrderService _orderService;
@@ -58,10 +59,12 @@ public sealed class BatchConsolidationManager : IBatchDelivery
             handleConsolidationFailure(orderId, "Order does not have a valid delivery address.");
         }
 
-        var firstLeg = _routeQueryService.retrieveFirstMileLeg(1)
-            ?? throw new InvalidOperationException("No first-mile route leg was found for route ID 1.");
+        if (!int.TryParse(orderId, out var parsedOrderId))
+        {
+            handleConsolidationFailure(orderId, "Order ID is invalid.");
+        }
 
-        var destinationHubId = firstLeg.GetEndPoint();
+        var destinationHubId = ResolveBatchHubFromSequenceTwo(parsedOrderId).ToString();
 
         if (!batchOrderConsolidator(orderId, destinationHubId))
         {
@@ -82,14 +85,9 @@ public sealed class BatchConsolidationManager : IBatchDelivery
             }
 
             var hub = _hubInfoService.GetHubInfo(destinationHubId);
-            if (hub is null || hub.GetHubType() != HubType.WAREHOUSE)
-            {
-                handleConsolidationFailure(orderId, "Destination hub is not a warehouse.");
-            }
-
             if (hub is null)
             {
-                throw new InvalidOperationException("Warehouse lookup returned null.");
+                throw new InvalidOperationException($"Consolidation failed for order '{orderId}': destination hub could not be resolved.");
             }
 
             targetBatch = createNewBatch(destinationHubId, hub.GetAddress());
@@ -164,6 +162,26 @@ public sealed class BatchConsolidationManager : IBatchDelivery
         return true;
     }
 
+    public bool resetOrderBatchAssignments()
+    {
+        var links = _context.BatchOrders.ToList();
+        if (links.Count > 0)
+        {
+            _context.BatchOrders.RemoveRange(links);
+        }
+
+        var batches = _deliveryBatchMapper.findAll();
+        foreach (var batch in batches)
+        {
+            batch.SetTotalOrders(0);
+            batch.updateBatchWeight(0d);
+            batch.updateCarbonSavings(0d);
+            _context.DeliveryBatches.Update(batch);
+        }
+
+        return _context.SaveChanges() >= 0;
+    }
+
     public double CalculateUnconsolidatedFirstLegCost(IEnumerable<string> orderIds, double distanceKm)
     {
         var total = 0d;
@@ -236,5 +254,42 @@ public sealed class BatchConsolidationManager : IBatchDelivery
             .Sum() ?? 0d;
 
         return orderWeightKg > 0d ? orderWeightKg : 1d;
+    }
+
+    private int ResolveBatchHubFromSequenceTwo(int orderId)
+    {
+        var selectedRouteId = _context.ShippingOptions
+            .Where(shippingOption => EF.Property<int?>(shippingOption, "OrderId") == orderId)
+            .OrderByDescending(shippingOption => EF.Property<int>(shippingOption, "OptionId"))
+            .Select(shippingOption => EF.Property<int?>(shippingOption, "RouteId"))
+            .FirstOrDefault();
+
+        var routeIdToUse = selectedRouteId.HasValue && selectedRouteId.Value > 0
+            ? selectedRouteId.Value
+            : ShowcaseFallbackRouteId;
+
+        var sequenceTwoStartPoint = _context.RouteLegs
+            .Where(routeLeg =>
+                EF.Property<int>(routeLeg, "RouteId") == routeIdToUse
+                && EF.Property<int>(routeLeg, "Sequence") == 2)
+            .Select(routeLeg => EF.Property<string>(routeLeg, "StartPoint"))
+            .FirstOrDefault();
+
+        if (string.IsNullOrWhiteSpace(sequenceTwoStartPoint))
+        {
+            throw new InvalidOperationException($"Consolidation failed for order '{orderId}': route leg sequence 2 was not found for route '{routeIdToUse}'.");
+        }
+
+        var hubId = _context.TransportationHubs
+            .Where(hub => EF.Property<string>(hub, "Address") == sequenceTwoStartPoint)
+            .Select(hub => EF.Property<int>(hub, "HubId"))
+            .FirstOrDefault();
+
+        if (hubId <= 0)
+        {
+            throw new InvalidOperationException($"Consolidation failed for order '{orderId}': no transportation hub matched sequence-2 start point '{sequenceTwoStartPoint}'.");
+        }
+
+        return hubId;
     }
 }
