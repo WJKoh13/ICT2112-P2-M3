@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Mvc;
+using ProRental.Domain.Controls;
 using ProRental.Domain.Enums;
 using ProRental.Interfaces.Module3.P2_1;
 using ProRental.Models.Module3.P2_1;
@@ -32,10 +33,20 @@ public sealed class ShippingOptionsController : Controller
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> SelectShippingPreference(int orderId, PreferenceType preferenceType, CancellationToken cancellationToken)
     {
-        var result = await _shippingOptionService.ConfirmPreferenceSelectionAsync(
-            new SelectShippingPreferenceRequest(orderId, preferenceType),
-            cancellationToken);
+        try
+        {
+            var result = await _shippingOptionService.ConfirmPreferenceSelectionAsync(
+                new SelectShippingPreferenceRequest(orderId, preferenceType),
+                cancellationToken);
 
-        return View($"{ViewRoot}Selected.cshtml", result);
+            return View($"{ViewRoot}Selected.cshtml", result);
+        }
+        catch (RouteResolutionException exception)
+        {
+            ModelState.AddModelError(string.Empty, exception.Message);
+            var options = await _shippingOptionService.GetPreferenceChoicesForOrderAsync(orderId, cancellationToken);
+            ViewData["OrderId"] = orderId;
+            return View($"{ViewRoot}Index.cshtml", options);
+        }
     }
 }

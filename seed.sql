@@ -1,6 +1,6 @@
 -- Clear tables and resetting the Identity counters 
 TRUNCATE 
-    Category, "User", TransactionLog, Supplier, PurchaseOrder, 
+    Category, "User", TransactionLog, Supplier, PurchaseOrder, StockItem,
     transportation_hub, transport, pricing_rule,
     product_return, Analytics, PackagingMaterial,
     "transaction", "Order", Checkout, Cart, CartItem,
@@ -98,7 +98,8 @@ VALUES
   ('Lydia Chua',       'STAFF', 'lydia.chua@example.com',       '$2b$12$hashLyd',   65, '90000012'),
   ('Marcus Ho',        'STAFF', 'marcus.ho@example.com',        '$2b$12$hashMar',   65, '90000013'),
   ('Natalie Yeo',      'STAFF', 'natalie.yeo@example.com',      '$2b$12$hashNat',   65, '90000014'),
-  ('Operations Admin', 'ADMIN', 'ops.admin@company.com',        '$2b$12$hashOps',   65, '90000015')
+  ('Operations Admin', 'ADMIN', 'ops.admin@company.com',        '$2b$12$hashOps',   65, '90000015'),
+  ('Yuki Sato',        'CUSTOMER', 'yuki.sato@example.jp',      '$2b$12$hashYuki',  81, '90123456')
 ON CONFLICT (email) DO NOTHING;
 
 INSERT INTO Customer (userId, address, customerType)
@@ -113,7 +114,9 @@ VALUES
   (8, '128 Plantation Crescent, Singapore 691128', 1),
   (9, '225 Bukit Batok Central, Singapore 650225', 2),
   (10, '503 Woodlands Ave 14, Singapore 730503', 2),
-  (11, '224 Serangoon Ave 4, Singapore 334224', 2)
+  (11, '224 Serangoon Ave 4, Singapore 334224', 2),
+  -- Overseas shipping test customer; resolves to JP because the address ends with Japan.
+  (16, '1 Chome-9 Marunouchi, Chiyoda City, Tokyo 100-0005, Japan', 1)
 ON CONFLICT (userId) DO NOTHING;
 
 INSERT INTO Staff (userId, department)
@@ -136,7 +139,10 @@ INSERT INTO transportation_hub (hub_type, longitude, latitude, country_code, add
 VALUES ('WAREHOUSE', 103.8198, 1.3521, 'SG', '1 Marina Boulevard, Singapore', 'OPERATIONAL', '24/7'),
        ('SHIPPING_PORT', 104.2167, 1.3667, 'SG', 'Port of Singapore, Pasir Ris, Singapore', 'OPERATIONAL', '6AM-11PM'),
        ('AIRPORT', 103.9914, 1.3644, 'SG', 'Changi Airport Terminal 3, Singapore', 'OPERATIONAL', '24/7'),
-       ('WAREHOUSE', 114.1694, 22.3193, 'HK', '123 Industrial Road, Hong Kong', 'OPERATIONAL', '8AM-8PM');
+       ('WAREHOUSE', 114.1694, 22.3193, 'HK', '123 Industrial Road, Hong Kong', 'OPERATIONAL', '8AM-8PM'),
+       ('SHIPPING_PORT', -118.2655, 33.7361, 'US', 'Port of Los Angeles, San Pedro, CA 90731, USA', 'OPERATIONAL', '24/7'),
+       ('SHIPPING_PORT', 139.7798, 35.6167, 'JP', 'Tokyo International Container Terminal, Aomi, Koto City, Tokyo 135-0064, Japan', 'OPERATIONAL', '6AM-10PM'),
+       ('AIRPORT', 140.3929, 35.7720, 'JP', '1 Furugome, Narita, Chiba 282-0004, Japan', 'OPERATIONAL', '24/7');
 
 -- Insert transport modes
 INSERT INTO transport (transport_mode, max_load_kg, vehicle_size_m2, is_available)
@@ -169,11 +175,14 @@ VALUES (1, 'WH-SG-001', 10000, 5000.0, 2.5, 1.8, 0.5),
 
 -- Insert shipping port subtype
 INSERT INTO shipping_port (hub_id, port_code, port_name, port_type, vessel_size)
-VALUES (2, 'SG-PORT', 'Port of Singapore', 'CONTAINER_PORT', 5000);
+VALUES (2, 'SG-PORT', 'Port of Singapore', 'CONTAINER_PORT', 5000),
+       (5, 'US-LAX-PORT', 'Port of Los Angeles', 'CONTAINER_PORT', 6000),
+       (6, 'JP-TOKYO', 'Tokyo International Container Terminal', 'CONTAINER_PORT', 5500);
 
 -- Insert airport subtype
 INSERT INTO airport (hub_id, airport_code, airport_name, terminal, aircraft_size)
-VALUES (3, 'SIN', 'Singapore Changi Airport', 3, 400);
+VALUES (3, 'SIN', 'Singapore Changi Airport', 3, 400),
+       (7, 'NRT', 'Narita International Airport', 2, 450);
 
 -- Insert transport subtypes
 INSERT INTO truck (transport_id, truck_id, truck_type, license_plate)
@@ -201,7 +210,7 @@ VALUES (1500.0, 'Port of Singapore', 'PENDING', 5, 25.50, 1),
 -- Team 2-6 Seed Data
 
 -- ================================================================
--- 1. SESSION (15 rows)
+-- 1. SESSION (16 rows)
 -- Roles: CUSTOMER (users 1–11), STAFF (users 12–15)
 -- Mix of: active, expired
 -- ================================================================
@@ -220,10 +229,12 @@ INSERT INTO Session (userId, role, createdAt, expiresAt) VALUES
 (1,  'CUSTOMER', NOW() - INTERVAL '1 hour',   NOW() + INTERVAL '23 hours'),  -- 12 ACTIVE
 (2,  'CUSTOMER', NOW() - INTERVAL '30 mins',  NOW() + INTERVAL '23 hours'),  -- 13 ACTIVE
 (12, 'STAFF',    NOW() - INTERVAL '2 hours',  NOW() + INTERVAL '6 hours'),   -- 14 ACTIVE
-(15, 'STAFF',    NOW() - INTERVAL '3 hours',  NOW() - INTERVAL '30 mins');   -- 15 expired
+(15, 'STAFF',    NOW() - INTERVAL '3 hours',  NOW() - INTERVAL '30 mins'),   -- 15 expired
+-- 16 overseas Japan shipping test session (userId 16)
+(16, 'CUSTOMER', NOW() - INTERVAL '45 mins',  NOW() + INTERVAL '23 hours');  -- 16 ACTIVE
 
 -- ================================================================
--- 2. CART (15 rows)
+-- 2. CART (16 rows)
 -- cart_status_enum: ACTIVE | CHECKED_OUT | EXPIRED
 -- Each cart linked to a customer + the session from above
 -- Carts 1–11: CHECKED_OUT (completed flow)
@@ -249,7 +260,9 @@ INSERT INTO Cart (customerId, sessionId, rentalStart, rentalEnd, status) VALUES
 (2,  13, NOW() + INTERVAL '3 days',  NOW() + INTERVAL '7 days',  'CHECKED_OUT'),  -- 13 pending checkout
 (3,  12, NOW() + INTERVAL '1 day',   NOW() + INTERVAL '4 days',  'CHECKED_OUT'),  -- 14 pending checkout
 -- Abandoned / active
-(5,  5,  NOW() - INTERVAL '8 days',  NOW() - INTERVAL '5 days',  'EXPIRED');      -- 15 abandoned (led to cancelled order)
+(5,  5,  NOW() - INTERVAL '8 days',  NOW() - INTERVAL '5 days',  'EXPIRED'),      -- 15 abandoned (led to cancelled order)
+-- Overseas Japan shipping test cart (customerId 12, sessionId 16)
+(12, 16, NOW() + INTERVAL '2 days',  NOW() + INTERVAL '6 days',  'CHECKED_OUT');  -- 16
 
 -- ================================================================
 -- 3. CART ITEM
@@ -300,10 +313,12 @@ INSERT INTO CartItem (cartId, productId, quantity, isSelected) VALUES
 -- Cart 15: R5 + Canon 70-200 + DJI RS3 (abandoned — cancelled order)
 (15, 1, 1, TRUE),
 (15, 4, 1, FALSE),  -- deselected before abandoning
-(15, 6, 1, TRUE);
+(15, 6, 1, TRUE),
+-- Cart 16: overseas Japan shipping test fixture (single rentable item)
+(16, 2, 1, TRUE);
 
 -- ================================================================
--- 4. CHECKOUT (15 rows)
+-- 4. CHECKOUT (16 rows)
 -- checkout_status_enum: IN_PROGRESS | CONFIRMED | CANCELLED
 -- All columns now provided including cartId
 -- ================================================================
@@ -322,7 +337,9 @@ INSERT INTO Checkout (customerId, cartId, paymentMethodType, status, notifyOptIn
 (11, 12, 'CREDIT_CARD', 'CONFIRMED',   FALSE, NOW() - INTERVAL '6 days'),   -- 12
 (2,  13, 'CREDIT_CARD', 'IN_PROGRESS', FALSE, NOW() - INTERVAL '1 day'),    -- 13
 (3,  14, 'CREDIT_CARD', 'IN_PROGRESS', TRUE,  NOW() - INTERVAL '2 hours'),  -- 14
-(5,  15, 'CREDIT_CARD', 'CANCELLED',   FALSE, NOW() - INTERVAL '8 days');   -- 15
+(5,  15, 'CREDIT_CARD', 'CANCELLED',   FALSE, NOW() - INTERVAL '8 days'),   -- 15
+-- Checkout 16: overseas Japan shipping test fixture
+(12, 16, 'CREDIT_CARD', 'CONFIRMED',   TRUE,  NOW() - INTERVAL '45 mins');  -- 16
 
 
 -- ================================================================
@@ -358,7 +375,9 @@ INSERT INTO Transaction (amount, type, purpose, status, providerTransactionId, c
 -- Penalty transaction (late return on Order 1)
 (30.00,  'PAYMENT', 'PENALTY',        'COMPLETED', 'stripe_txn_016', NOW() - INTERVAL '26 days'),  -- 16
 -- Deposit refund transaction (Order 2 deposit returned)
-(66.00,  'PAYMENT', 'REFUND_DEPOSIT', 'COMPLETED', 'stripe_txn_017', NOW() - INTERVAL '22 days');  -- 17
+(66.00,  'PAYMENT', 'REFUND_DEPOSIT', 'COMPLETED', 'stripe_txn_017', NOW() - INTERVAL '22 days'),  -- 17
+-- Order 16: overseas Japan shipping test fixture
+(130.00, 'PAYMENT', 'ORDER',          'COMPLETED', 'stripe_txn_018', NOW() - INTERVAL '30 mins');  -- 18
 
 
 -- ================================================================
@@ -387,7 +406,9 @@ INSERT INTO "Order" (customerId, checkoutId, transactionId, orderDate, status, d
 (3,  14, 13,   NOW() - INTERVAL '2 hours', 'PENDING',            'ThreeDays',   80.00),  -- 13
 -- CANCELLED
 (10, 10, 14,   NOW() - INTERVAL '4 days',  'CANCELLED',          'NextDay',    130.00),  -- 14
-(5,  15, 15,   NOW() - INTERVAL '8 days',  'CANCELLED',          'OneWeek',    270.00);  -- 15
+(5,  15, 15,   NOW() - INTERVAL '8 days',  'CANCELLED',          'OneWeek',    270.00),  -- 15
+-- Overseas Japan shipping test order
+(12, 16, 18,   NOW() - INTERVAL '30 mins', 'CONFIRMED',          'ThreeDays',  130.00);  -- 16
 
 -- ================================================================
 -- 7. ORDER ITEM
@@ -436,7 +457,9 @@ INSERT INTO OrderItem (orderId, productId, quantity, unitPrice, rentalStartDate,
 -- Order 15: Canon R5 + Canon 70-200 + DJI RS3 (cancelled)
 (15, 1, 1, 150.00, NOW() + INTERVAL '2 days', NOW() + INTERVAL '9 days'),
 (15, 4, 1, 110.00, NOW() + INTERVAL '2 days', NOW() + INTERVAL '9 days'),
-(15, 6, 1,  60.00, NOW() + INTERVAL '2 days', NOW() + INTERVAL '9 days');
+(15, 6, 1,  60.00, NOW() + INTERVAL '2 days', NOW() + INTERVAL '9 days'),
+-- Order 16: overseas Japan shipping test fixture
+(16, 2, 1, 130.00, NOW() + INTERVAL '2 days', NOW() + INTERVAL '6 days');
 
 -- ================================================================
 -- 8. PAYMENT (one per order, using Transaction ids 1–15)
@@ -459,6 +482,7 @@ INSERT INTO Payment (paymentId, orderId, transactionId, amount, purpose, status,
 ('PAY-ORD-013', 13, 13,   80.00, 'RENTAL_FEE_DEPOSIT', 'PENDING',   NOW() - INTERVAL '2 hours'),
 ('PAY-ORD-014', 14, 14,  130.00, 'RENTAL_FEE_DEPOSIT', 'CANCELLED', NOW() - INTERVAL '4 days'),
 ('PAY-ORD-015', 15, 15,  270.00, 'RENTAL_FEE_DEPOSIT', 'CANCELLED', NOW() - INTERVAL '8 days'),
+('PAY-ORD-016', 16, 18,  130.00, 'RENTAL_FEE_DEPOSIT', 'COMPLETED', NOW() - INTERVAL '30 mins'),
 -- Penalty payment for Order 1 late return (uses Transaction 16)
 ('PAY-PEN-001',  1, 16,   30.00, 'PENALTY_FEE',        'COMPLETED', NOW() - INTERVAL '26 days');
 
@@ -513,7 +537,8 @@ INSERT INTO Deposit (depositId, orderId, transactionId, originalAmount, heldAmou
 -- (A7IV 39 + Sony lens 22.50 = 61.50; but order was cancelled before payment completed — refund matches what was captured: 0 in practice. Using 32.50 as partial capture example)
 
 -- Order 15: CANCELLED full kit → full refund
-('DEP-ORD-015', 15, 15, 84.50, 84.50, 84.50,  0.00, NOW() - INTERVAL '8 days');
+('DEP-ORD-015', 15, 15, 84.50, 84.50, 84.50,  0.00, NOW() - INTERVAL '8 days'),
+('DEP-ORD-016', 16, 18, 39.00, 39.00,  0.00,  0.00, NOW() - INTERVAL '30 mins');
 -- (R5 45 + Canon 70-200 27.50 + DJI RS3 12 = 84.50)
 
 -- Team 5 seed--

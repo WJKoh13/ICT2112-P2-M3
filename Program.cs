@@ -259,6 +259,13 @@ builder.Services.AddScoped<Module1Controller>();
 
 var app = builder.Build();
 
+var missingGoogleMapsApiKeyWarning =
+    GoogleMapsConfigurationDiagnostics.GetMissingApiKeyWarning(app.Configuration);
+if (missingGoogleMapsApiKeyWarning is not null)
+{
+    app.Logger.LogWarning("{GoogleMapsConfigurationWarning}", missingGoogleMapsApiKeyWarning);
+}
+
 
 // Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())

@@ -17,33 +17,33 @@ public sealed class RouteLegBuilder : IRouteLegBuilder
         _routeDistanceCalculator = routeDistanceCalculator;
     }
 
-    public RouteLeg BuildFirstMileLeg(string startPoint, string endPoint)
+    public Task<RouteLeg> BuildFirstMileLegAsync(RouteDistancePoint startPoint, RouteDistancePoint endPoint)
     {
-        return BuildLeg(1, startPoint, endPoint, TransportMode.TRUCK, isFirstMile: true, isMainTransport: false, isLastMile: false);
+        return BuildLegAsync(1, startPoint, endPoint, TransportMode.TRUCK, isFirstMile: true, isMainTransport: false, isLastMile: false);
     }
 
-    public RouteLeg BuildMainTransportLeg(int sequence, string startPoint, string endPoint, TransportMode transportMode)
+    public Task<RouteLeg> BuildMainTransportLegAsync(int sequence, RouteDistancePoint startPoint, RouteDistancePoint endPoint, TransportMode transportMode)
     {
-        return BuildLeg(sequence, startPoint, endPoint, transportMode, isFirstMile: false, isMainTransport: true, isLastMile: false);
+        return BuildLegAsync(sequence, startPoint, endPoint, transportMode, isFirstMile: false, isMainTransport: true, isLastMile: false);
     }
 
-    public RouteLeg BuildLastMileLeg(int sequence, string startPoint, string endPoint)
+    public Task<RouteLeg> BuildLastMileLegAsync(int sequence, RouteDistancePoint startPoint, RouteDistancePoint endPoint)
     {
-        return BuildLeg(sequence, startPoint, endPoint, TransportMode.TRUCK, isFirstMile: false, isMainTransport: false, isLastMile: true);
+        return BuildLegAsync(sequence, startPoint, endPoint, TransportMode.TRUCK, isFirstMile: false, isMainTransport: false, isLastMile: true);
     }
 
-    private RouteLeg BuildLeg(
+    private async Task<RouteLeg> BuildLegAsync(
         int sequence,
-        string startPoint,
-        string endPoint,
+        RouteDistancePoint startPoint,
+        RouteDistancePoint endPoint,
         TransportMode transportMode,
         bool isFirstMile,
         bool isMainTransport,
         bool isLastMile)
     {
-        var distanceKm = _routeDistanceCalculator.CalculateDistanceKm(startPoint, endPoint);
+        var distanceKm = await _routeDistanceCalculator.CalculateDistanceKmAsync(transportMode, startPoint, endPoint);
         var routeLeg = new RouteLeg();
-        routeLeg.ConfigureLeg(sequence, startPoint, endPoint, distanceKm, transportMode, isFirstMile, isMainTransport, isLastMile);
+        routeLeg.ConfigureLeg(sequence, startPoint.Address, endPoint.Address, distanceKm, transportMode, isFirstMile, isMainTransport, isLastMile);
         return routeLeg;
     }
 }

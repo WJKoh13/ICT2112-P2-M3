@@ -4,14 +4,19 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Configuration;
 using Microsoft.AspNetCore.Mvc;
 using Npgsql;
+using System.Net;
+using System.Net.Http;
+using System.Net.Http.Json;
 using ProRental.Configuration.Module3.P2_1;
 using ProRental.Controllers;
 using ProRental.Data.Gateways;
+using ProRental.Data.Interfaces;
 using ProRental.Data.UnitOfWork;
 using ProRental.Data.Module3.P2_1;
 using ProRental.Data.Module3.P2_1.Gateways;
 using ProRental.Data.Module3.P2_1.Interfaces;
 using ProRental.Domain.Controls;
+using ProRental.Domain.Module3.P2_1.Controls;
 using ProRental.Domain.Entities;
 using ProRental.Domain.Enums;
 using ProRental.Interfaces;
@@ -316,7 +321,7 @@ internal static class Phase1Tests
         AssertMethod(mapper, "SaveChangesAsync", typeof(Task), typeof(CancellationToken));
 
         AssertMethod(orderService, "GetShippingContextAsync", typeof(Task<OrderShippingContext?>), typeof(int), typeof(CancellationToken));
-        AssertMethod(routingService, "CreateMultiModalRoute", typeof(DeliveryRoute), typeof(string), typeof(string), typeof(List<TransportMode>));
+        AssertMethod(routingService, "CreateMultiModalRouteAsync", typeof(Task<DeliveryRoute>), typeof(string), typeof(string), typeof(List<TransportMode>));
         AssertMethod(transportCarbonService, "CalculateLegCarbon", typeof(double), typeof(int), typeof(double), typeof(double), typeof(double));
         AssertMethod(transportCarbonService, "CalculateRouteCarbon", typeof(double), typeof(IReadOnlyList<double>));
         AssertMethod(transportCarbonService, "CalculateLegCarbonSurcharge", typeof(double), typeof(int), typeof(double), typeof(double), typeof(double), typeof(TransportMode));
@@ -416,6 +421,16 @@ internal static class Phase2Tests
 // Phase 3 verifies the EF-backed mapper against a real PostgreSQL test fixture.
 internal static class Phase3Tests
 {
+    internal const string CustomerAddress = "1 Fullerton Road, Singapore 049213";
+    internal const string WarehouseAddress = "8 Marina View, Singapore 018960";
+    internal const string AirportAddressOne = "60 Airport Boulevard, Singapore 819643";
+    internal const string AirportAddressTwo = "1-1 Furugome, Narita, Chiba 282-0004, Japan";
+    internal const string ShippingPortAddressOne = "31 Marina Coastal Drive, Singapore 018988";
+    internal const string ShippingPortAddressTwo = "Pier 4, North Harbor, Tondo, Manila 1012, Philippines";
+    internal const string JapanCustomerAddress = "1 Chome-9 Marunouchi, Chiyoda City, Tokyo 100-0005, Japan";
+    internal const string UnitedStatesCustomerAddress = "100 W 1st Street, Los Angeles, CA 90012, USA";
+    internal const string UnitedStatesShippingPortAddress = "425 S Palos Verdes Street, San Pedro, CA 90731, USA";
+
     public static IReadOnlyList<PhaseTest> All { get; } =
     [
         new("Repository can load an order with checkout state", RepositoryCanLoadOrderWithCheckout),
@@ -543,7 +558,10 @@ internal static class Phase3Tests
         return new AppDbContext(options);
     }
 
-    internal static OrderFixture CreateOrderFixture(AppDbContext context, bool includeAdditionalOrderItem = false)
+    internal static OrderFixture CreateOrderFixture(
+        AppDbContext context,
+        bool includeAdditionalOrderItem = false,
+        string? customerAddress = null)
     {
         var suffix = Guid.NewGuid().ToString("N")[..12];
 
@@ -557,7 +575,7 @@ internal static class Phase3Tests
 
         var customer = new Customer();
         customer.SetUserId(user.GetUserId());
-        customer.SetAddress("Phase 3 Address");
+        customer.SetAddress(customerAddress ?? CustomerAddress);
         customer.SetCustomerType(1);
         context.Customers.Add(customer);
         context.SaveChanges();
@@ -610,7 +628,7 @@ internal static class Phase3Tests
     {
         var warehouse = new Warehouse();
         warehouse.SetHubType(HubType.WAREHOUSE);
-        warehouse.SetAddress($"Phase 3 Warehouse {suffix}");
+        warehouse.SetAddress(WarehouseAddress);
         warehouse.SetCountryCode("SG");
         warehouse.SetLatitude(1.290270);
         warehouse.SetLongitude(103.851959);
@@ -622,6 +640,67 @@ internal static class Phase3Tests
         context.SaveChanges();
 
         return warehouse.GetHubId();
+    }
+
+    internal static int CreateAirportFixture(AppDbContext context, string suffix, string address, string airportCode, string airportName)
+    {
+        var airport = new Airport();
+        airport.SetHubType(HubType.AIRPORT);
+        airport.SetAddress(address);
+        airport.SetCountryCode(ResolveCountryCodeFromAddress(address));
+        airport.SetLatitude(1.0);
+        airport.SetLongitude(103.0);
+        airport.SetAirportCode($"{airportCode}-{suffix}");
+        airport.SetAirportName(airportName);
+
+        context.TransportationHubs.Add(airport);
+        context.SaveChanges();
+
+        return airport.GetHubId();
+    }
+
+    internal static int CreateShippingPortFixture(AppDbContext context, string suffix, string address, string portCode, string portName)
+    {
+        var port = new ShippingPort();
+        port.SetHubType(HubType.SHIPPING_PORT);
+        port.SetAddress(address);
+        port.SetCountryCode(ResolveCountryCodeFromAddress(address));
+        port.SetLatitude(1.0);
+        port.SetLongitude(103.0);
+        port.SetPortCode($"{portCode}-{suffix}");
+        port.SetPortName(portName);
+        port.SetPortType("CONTAINER");
+
+        context.TransportationHubs.Add(port);
+        context.SaveChanges();
+
+        return port.GetHubId();
+    }
+
+    private static string ResolveCountryCodeFromAddress(string address)
+    {
+        if (address.Contains("Singapore", StringComparison.OrdinalIgnoreCase))
+        {
+            return "SG";
+        }
+
+        if (address.Contains("Japan", StringComparison.OrdinalIgnoreCase))
+        {
+            return "JP";
+        }
+
+        if (address.Contains("USA", StringComparison.OrdinalIgnoreCase) ||
+            address.Contains("United States", StringComparison.OrdinalIgnoreCase))
+        {
+            return "US";
+        }
+
+        if (address.Contains("Philippines", StringComparison.OrdinalIgnoreCase))
+        {
+            return "PH";
+        }
+
+        throw new InvalidOperationException($"Unsupported test country mapping for address '{address}'.");
     }
 
     private static (int CategoryId, int ProductId) CreateProductFixture(AppDbContext context, string suffix, int? categoryId = null)
@@ -732,8 +811,20 @@ internal static class Phase4Tests
     [
         new("TransportCarbonManager calculates leg surcharge by transport type", TransportCarbonManagerCalculatesLegSurchargeByTransportType),
         new("TransportCarbonManager sums leg surcharges into route total", TransportCarbonManagerSumsLegSurcharges),
-        new("ShippingOptionManager returns preference cards without routing or carbon calls", ShippingOptionManagerReturnsPreferenceCardsWithoutRouting),
+        new("RouteDistanceCalculator returns Google distance when route lookup succeeds", RouteDistanceCalculatorReturnsGoogleDistance),
+        new("RouteDistanceCalculator fails when Google returns no route distance", RouteDistanceCalculatorThrowsWhenGoogleReturnsNoRoute),
+        new("RouteDistanceCalculator fails when Google returns a non-success status", RouteDistanceCalculatorThrowsWhenGoogleReturnsNonSuccessStatus),
+        new("RouteDistanceCalculator uses geodesic distance for PLANE main legs without Google", RouteDistanceCalculatorUsesGeodesicDistanceForPlaneMainLegs),
+        new("RouteDistanceCalculator uses geodesic distance for SHIP main legs without Google", RouteDistanceCalculatorUsesGeodesicDistanceForShipMainLegs),
+        new("RouteDistanceCalculator fails when Google API key is missing", RouteDistanceCalculatorThrowsWhenGoogleApiKeyIsMissing),
+        new("RouteDistanceCalculator fails when route endpoints are blank", RouteDistanceCalculatorThrowsWhenRouteEndpointsAreBlank),
+        new("RouteDistanceCalculator fails when PLANE main-leg coordinates are missing", RouteDistanceCalculatorThrowsWhenPlaneCoordinatesAreMissing),
+        new("RouteDistanceCalculator fails when SHIP main-leg coordinates are invalid", RouteDistanceCalculatorThrowsWhenShipCoordinatesAreInvalid),
+        new("ShippingOptionManager returns same-country preference cards without routing or carbon calls", ShippingOptionManagerReturnsPreferenceCardsWithoutRouting),
+        new("ShippingOptionManager returns cross-country preference cards with PLANE and SHIP labels", ShippingOptionManagerReturnsCrossCountryPreferenceCards),
         new("ShippingOptionManager confirms one preference with one route and one quote call", ShippingOptionManagerConfirmsPreferenceAndPersistsSingleOption),
+        new("ShippingOptionManager uses TRAIN for same-country FAST selection", ShippingOptionManagerUsesTrainForSameCountryFastSelection),
+        new("ShippingOptionManager uses TRUCK for same-country CHEAP selection", ShippingOptionManagerUsesTruckForSameCountryCheapSelection),
         new("ShippingOptionManager reuses an existing persisted option on reselection", ShippingOptionManagerReusesPersistedOptionOnReselection)
     ];
 
@@ -765,13 +856,194 @@ internal static class Phase4Tests
         TestAssertions.AssertEqual(20.6d, total);
     }
 
+    private static void RouteDistanceCalculatorReturnsGoogleDistance()
+    {
+        var calculator = new RouteDistanceCalculator(CreateGoogleMapsApi(_ => new HttpResponseMessage(HttpStatusCode.OK)
+        {
+            Content = JsonContent.Create(new
+            {
+                routes = new[]
+                {
+                    new
+                    {
+                        distanceMeters = 12345d
+                    }
+                }
+            })
+        }));
+
+        var distanceKm = calculator.CalculateDistanceKmAsync(
+            TransportMode.TRUCK,
+            CreatePoint("8 Marina View, Singapore 018960"),
+            CreatePoint("1 Fullerton Road, Singapore 049213")).GetAwaiter().GetResult();
+
+        TestAssertions.AssertEqual(12.35d, distanceKm);
+    }
+
+    private static void RouteDistanceCalculatorThrowsWhenGoogleReturnsNoRoute()
+    {
+        var calculator = new RouteDistanceCalculator(CreateGoogleMapsApi(_ => new HttpResponseMessage(HttpStatusCode.OK)
+        {
+            Content = JsonContent.Create(new
+            {
+                routes = Array.Empty<object>()
+            })
+        }));
+
+        var exception = TestAssertions.AssertThrows<RouteResolutionException>(
+            () => calculator.CalculateDistanceKmAsync(
+                TransportMode.TRUCK,
+                CreatePoint("8 Marina View, Singapore 018960"),
+                CreatePoint("1 Fullerton Road, Singapore 049213")).GetAwaiter().GetResult(),
+            "Expected route distance lookup to fail when Google returns no route.");
+
+        TestAssertions.AssertTrue(
+            exception.Message.Contains("did not return a route distance", StringComparison.Ordinal),
+            "Expected a missing-route error message.");
+    }
+
+    private static void RouteDistanceCalculatorThrowsWhenGoogleReturnsNonSuccessStatus()
+    {
+        var calculator = new RouteDistanceCalculator(CreateGoogleMapsApi(_ => new HttpResponseMessage(HttpStatusCode.BadGateway)));
+
+        var exception = TestAssertions.AssertThrows<RouteResolutionException>(
+            () => calculator.CalculateDistanceKmAsync(
+                TransportMode.TRUCK,
+                CreatePoint("8 Marina View, Singapore 018960"),
+                CreatePoint("1 Fullerton Road, Singapore 049213")).GetAwaiter().GetResult(),
+            "Expected route distance lookup to fail when Google returns a non-success status.");
+
+        TestAssertions.AssertTrue(
+            exception.Message.Contains("status", StringComparison.Ordinal),
+            "Expected an HTTP-status error message.");
+    }
+
+    private static void RouteDistanceCalculatorUsesGeodesicDistanceForPlaneMainLegs()
+    {
+        var googleMapsApi = new Phase4RecordingGoogleMapsApi();
+        var calculator = new RouteDistanceCalculator(googleMapsApi);
+
+        var distanceKm = calculator.CalculateDistanceKmAsync(
+            TransportMode.PLANE,
+            CreatePoint("Origin Airport", 0d, 0d),
+            CreatePoint("Destination Airport", 0d, 1d)).GetAwaiter().GetResult();
+
+        TestAssertions.AssertEqual(111.2d, distanceKm);
+        TestAssertions.AssertEqual(0, googleMapsApi.Requests.Count);
+    }
+
+    private static void RouteDistanceCalculatorUsesGeodesicDistanceForShipMainLegs()
+    {
+        var googleMapsApi = new Phase4RecordingGoogleMapsApi();
+        var calculator = new RouteDistanceCalculator(googleMapsApi);
+
+        var distanceKm = calculator.CalculateDistanceKmAsync(
+            TransportMode.SHIP,
+            CreatePoint("Origin Port", 0d, 0d),
+            CreatePoint("Destination Port", 1d, 0d)).GetAwaiter().GetResult();
+
+        TestAssertions.AssertEqual(111.2d, distanceKm);
+        TestAssertions.AssertEqual(0, googleMapsApi.Requests.Count);
+    }
+
+    private static void RouteDistanceCalculatorThrowsWhenGoogleApiKeyIsMissing()
+    {
+        var calculator = new RouteDistanceCalculator(CreateGoogleMapsApi(
+            _ => throw new InvalidOperationException("Google route lookup should not run without an API key."),
+            apiKey: string.Empty));
+
+        var exception = TestAssertions.AssertThrows<RouteResolutionException>(
+            () => calculator.CalculateDistanceKmAsync(
+                TransportMode.TRUCK,
+                CreatePoint("8 Marina View, Singapore 018960"),
+                CreatePoint("1 Fullerton Road, Singapore 049213")).GetAwaiter().GetResult(),
+            "Expected route distance lookup to fail when the Google API key is missing.");
+
+        TestAssertions.AssertTrue(
+            exception.Message.Contains("configured API key and non-empty route endpoints", StringComparison.Ordinal),
+            "Expected a missing-key configuration error message.");
+    }
+
+    private static void RouteDistanceCalculatorThrowsWhenRouteEndpointsAreBlank()
+    {
+        var calculator = new RouteDistanceCalculator(CreateGoogleMapsApi(
+            _ => throw new InvalidOperationException("Google route lookup should not run with blank route endpoints.")));
+
+        var exception = TestAssertions.AssertThrows<RouteResolutionException>(
+            () => calculator.CalculateDistanceKmAsync(
+                TransportMode.TRUCK,
+                CreatePoint(string.Empty),
+                CreatePoint("1 Fullerton Road, Singapore 049213")).GetAwaiter().GetResult(),
+            "Expected route distance lookup to fail when route endpoints are blank.");
+
+        TestAssertions.AssertTrue(
+            exception.Message.Contains("configured API key and non-empty route endpoints", StringComparison.Ordinal),
+            "Expected a blank-endpoint configuration error message.");
+    }
+
+    private static void RouteDistanceCalculatorThrowsWhenPlaneCoordinatesAreMissing()
+    {
+        var googleMapsApi = new Phase4RecordingGoogleMapsApi();
+        var calculator = new RouteDistanceCalculator(googleMapsApi);
+
+        var exception = TestAssertions.AssertThrows<RouteResolutionException>(
+            () => calculator.CalculateDistanceKmAsync(
+                TransportMode.PLANE,
+                CreatePoint("Origin Airport"),
+                CreatePoint("Destination Airport", 0d, 1d)).GetAwaiter().GetResult(),
+            "Expected PLANE main-leg distance lookup to fail without coordinates.");
+
+        TestAssertions.AssertTrue(
+            exception.Message.Contains("Valid hub coordinates", StringComparison.Ordinal),
+            "Expected a missing-coordinate error message.");
+        TestAssertions.AssertEqual(0, googleMapsApi.Requests.Count);
+    }
+
+    private static void RouteDistanceCalculatorThrowsWhenShipCoordinatesAreInvalid()
+    {
+        var googleMapsApi = new Phase4RecordingGoogleMapsApi();
+        var calculator = new RouteDistanceCalculator(googleMapsApi);
+
+        var exception = TestAssertions.AssertThrows<RouteResolutionException>(
+            () => calculator.CalculateDistanceKmAsync(
+                TransportMode.SHIP,
+                CreatePoint("Origin Port", 95d, 0d),
+                CreatePoint("Destination Port", 1d, 0d)).GetAwaiter().GetResult(),
+            "Expected SHIP main-leg distance lookup to fail with invalid coordinates.");
+
+        TestAssertions.AssertTrue(
+            exception.Message.Contains("Valid hub coordinates", StringComparison.Ordinal),
+            "Expected an invalid-coordinate error message.");
+        TestAssertions.AssertEqual(0, googleMapsApi.Requests.Count);
+    }
+
+    private static GoogleMapsAPI CreateGoogleMapsApi(Func<HttpRequestMessage, HttpResponseMessage> responder, string apiKey = "test-key")
+    {
+        var configuration = new ConfigurationBuilder()
+            .AddInMemoryCollection(new Dictionary<string, string?>
+            {
+                [GoogleMapsConfigurationDiagnostics.ApiKeyConfigPath] = apiKey
+            })
+            .Build();
+
+        var httpClient = new HttpClient(new Phase4StubHttpMessageHandler(responder))
+        {
+            BaseAddress = new Uri("https://routes.googleapis.com/")
+        };
+
+        return new GoogleMapsAPI(httpClient, configuration);
+    }
+
+    private static RouteDistancePoint CreatePoint(string address, double? latitude = null, double? longitude = null) =>
+        new(address, latitude, longitude);
+
     private static void ShippingOptionManagerReturnsPreferenceCardsWithoutRouting()
     {
         var repository = new InMemoryShippingOptionMapper();
         var orderService = new StubOrderService(CreateOrderShippingContext());
         var routingService = new StubRoutingService();
         var transportCarbonService = new StubTransportCarbonService();
-        var manager = new ShippingOptionManager(repository, orderService, routingService, transportCarbonService);
+        var manager = new ShippingOptionManager(repository, orderService, routingService, CreatePhase4HubMapper(), transportCarbonService);
 
         var result = manager.GetPreferenceChoicesForOrderAsync(orderService.Context.OrderId).GetAwaiter().GetResult();
 
@@ -779,9 +1051,27 @@ internal static class Phase4Tests
         TestAssertions.AssertSequence(
             new[] { PreferenceType.FAST, PreferenceType.CHEAP, PreferenceType.GREEN },
             result.Select(option => option.PreferenceType));
+        TestAssertions.AssertEqual("TRAIN", result.Single(option => option.PreferenceType == PreferenceType.FAST).AllowedModesLabel);
+        TestAssertions.AssertEqual("TRUCK", result.Single(option => option.PreferenceType == PreferenceType.CHEAP).AllowedModesLabel);
+        TestAssertions.AssertEqual("TRAIN", result.Single(option => option.PreferenceType == PreferenceType.GREEN).AllowedModesLabel);
         TestAssertions.AssertEqual(0, repository.StoredOptions.Count);
         TestAssertions.AssertEqual(0, routingService.Requests.Count);
         TestAssertions.AssertEqual(0, transportCarbonService.RouteQuoteRequests.Count);
+    }
+
+    private static void ShippingOptionManagerReturnsCrossCountryPreferenceCards()
+    {
+        var repository = new InMemoryShippingOptionMapper();
+        var orderService = new StubOrderService(CreateOrderShippingContext(Phase3Tests.JapanCustomerAddress));
+        var routingService = new StubRoutingService();
+        var transportCarbonService = new StubTransportCarbonService();
+        var manager = new ShippingOptionManager(repository, orderService, routingService, CreatePhase4HubMapper(), transportCarbonService);
+
+        var result = manager.GetPreferenceChoicesForOrderAsync(orderService.Context.OrderId).GetAwaiter().GetResult();
+
+        TestAssertions.AssertEqual("PLANE", result.Single(option => option.PreferenceType == PreferenceType.FAST).AllowedModesLabel);
+        TestAssertions.AssertEqual("SHIP", result.Single(option => option.PreferenceType == PreferenceType.CHEAP).AllowedModesLabel);
+        TestAssertions.AssertEqual("TRAIN + SHIP", result.Single(option => option.PreferenceType == PreferenceType.GREEN).AllowedModesLabel);
     }
 
     private static void ShippingOptionManagerConfirmsPreferenceAndPersistsSingleOption()
@@ -791,7 +1081,7 @@ internal static class Phase4Tests
         var orderService = new StubOrderService(CreateOrderShippingContext());
         var routingService = new StubRoutingService();
         var transportCarbonService = new StubTransportCarbonService();
-        var manager = new ShippingOptionManager(repository, orderService, routingService, transportCarbonService);
+        var manager = new ShippingOptionManager(repository, orderService, routingService, CreatePhase4HubMapper(), transportCarbonService);
 
         var result = manager.ConfirmPreferenceSelectionAsync(
             new SelectShippingPreferenceRequest(10, PreferenceType.GREEN)).GetAwaiter().GetResult();
@@ -801,6 +1091,7 @@ internal static class Phase4Tests
         TestAssertions.AssertEqual(1, repository.StoredOptions.Count);
         TestAssertions.AssertEqual(1, routingService.Requests.Count);
         TestAssertions.AssertEqual(1, transportCarbonService.RouteQuoteRequests.Count);
+        TestAssertions.AssertSequence(new[] { TransportMode.TRAIN }, routingService.Requests.Single().Modes);
         TestAssertions.AssertEqual(PreferenceType.GREEN, result.PreferenceType);
         TestAssertions.AssertEqual("TRAIN", result.TransportModeLabel);
 
@@ -808,6 +1099,40 @@ internal static class Phase4Tests
         TestAssertions.AssertEqual(202, quoteRequest.QuoteInput.HubId);
         TestAssertions.AssertEqual(2, quoteRequest.QuoteInput.Items.Count);
         TestAssertions.AssertEqual(16.5d, quoteRequest.QuoteInput.Items.Sum(item => item.Quantity * item.UnitWeightKg));
+    }
+
+    private static void ShippingOptionManagerUsesTrainForSameCountryFastSelection()
+    {
+        var repository = new InMemoryShippingOptionMapper();
+        repository.Order = CreateOrder(10, 30, 20);
+        var orderService = new StubOrderService(CreateOrderShippingContext());
+        var routingService = new StubRoutingService();
+        var transportCarbonService = new StubTransportCarbonService();
+        var manager = new ShippingOptionManager(repository, orderService, routingService, CreatePhase4HubMapper(), transportCarbonService);
+
+        var result = manager.ConfirmPreferenceSelectionAsync(
+            new SelectShippingPreferenceRequest(10, PreferenceType.FAST)).GetAwaiter().GetResult();
+
+        TestAssertions.AssertSequence(new[] { TransportMode.TRAIN }, routingService.Requests.Single().Modes);
+        TestAssertions.AssertEqual("TRAIN", result.TransportModeLabel);
+        TestAssertions.AssertEqual(TransportMode.TRAIN, repository.StoredOptions.Single().GetSummary().TransportMode);
+    }
+
+    private static void ShippingOptionManagerUsesTruckForSameCountryCheapSelection()
+    {
+        var repository = new InMemoryShippingOptionMapper();
+        repository.Order = CreateOrder(10, 30, 20);
+        var orderService = new StubOrderService(CreateOrderShippingContext());
+        var routingService = new StubRoutingService();
+        var transportCarbonService = new StubTransportCarbonService();
+        var manager = new ShippingOptionManager(repository, orderService, routingService, CreatePhase4HubMapper(), transportCarbonService);
+
+        var result = manager.ConfirmPreferenceSelectionAsync(
+            new SelectShippingPreferenceRequest(10, PreferenceType.CHEAP)).GetAwaiter().GetResult();
+
+        TestAssertions.AssertSequence(new[] { TransportMode.TRUCK }, routingService.Requests.Single().Modes);
+        TestAssertions.AssertEqual("TRUCK", result.TransportModeLabel);
+        TestAssertions.AssertEqual(TransportMode.TRUCK, repository.StoredOptions.Single().GetSummary().TransportMode);
     }
 
     private static void ShippingOptionManagerReusesPersistedOptionOnReselection()
@@ -820,8 +1145,9 @@ internal static class Phase4Tests
         var transportCarbonService = new StubTransportCarbonService();
         var manager = new ShippingOptionManager(
             repository,
-            new StubOrderService(CreateOrderShippingContext()),
+            new StubOrderService(CreateOrderShippingContext(Phase3Tests.JapanCustomerAddress)),
             routingService,
+            CreatePhase4HubMapper(),
             transportCarbonService);
 
         var selection = manager.ConfirmPreferenceSelectionAsync(
@@ -836,7 +1162,7 @@ internal static class Phase4Tests
         TestAssertions.AssertEqual("PLANE", selection.TransportModeLabel);
     }
 
-    private static OrderShippingContext CreateOrderShippingContext()
+    private static OrderShippingContext CreateOrderShippingContext(string destinationAddress = "Singapore")
     {
         OrderShippingItem[] items =
         [
@@ -844,7 +1170,27 @@ internal static class Phase4Tests
             new OrderShippingItem(102, 1, 5.5d)
         ];
 
-        return new OrderShippingContext(10, 20, 30, "Singapore", 202, items, 16.5d);
+        return new OrderShippingContext(10, 20, 30, destinationAddress, 202, items, 16.5d);
+    }
+
+    private static ITransportationHubMapper CreatePhase4HubMapper()
+    {
+        return new Phase4TransportationHubMapper([CreatePhase4WarehouseHub(202, Phase3Tests.WarehouseAddress)]);
+    }
+
+    private static Warehouse CreatePhase4WarehouseHub(int hubId, string address)
+    {
+        var warehouse = new Warehouse();
+        warehouse.SetHubId(hubId);
+        warehouse.SetHubType(HubType.WAREHOUSE);
+        warehouse.SetAddress(address);
+        warehouse.SetCountryCode("SG");
+        warehouse.SetLatitude(1.290270);
+        warehouse.SetLongitude(103.851959);
+        warehouse.SetWarehouseCode($"PHASE4-WH-{hubId}");
+        warehouse.SetMaxProductCapacity(100);
+        warehouse.SetTotalWarehouseVolume(1000d);
+        return warehouse;
     }
 
     private static ShippingOption CreatePersistedOption(
@@ -971,7 +1317,7 @@ internal static class Phase4Tests
     {
         public List<(string Origin, string Destination, IReadOnlyList<TransportMode> Modes)> Requests { get; } = [];
 
-        public DeliveryRoute CreateMultiModalRoute(string origin, string destination, List<TransportMode> modes)
+        public Task<DeliveryRoute> CreateMultiModalRouteAsync(string origin, string destination, List<TransportMode> modes)
         {
             Requests.Add((origin, destination, modes.ToArray()));
             var route = new DeliveryRoute();
@@ -981,20 +1327,46 @@ internal static class Phase4Tests
             route.SetTotalDistanceKm(24d);
 
             var primaryMode = modes.FirstOrDefault();
-            var firstLeg = new RouteLeg();
-            firstLeg.ConfigureLeg(1, origin, "Departure Hub", 4d, TransportMode.TRUCK, true, false, false);
-            route.RouteLegs.Add(firstLeg);
+            if (primaryMode is TransportMode.TRAIN or TransportMode.TRUCK)
+            {
+                var directLeg = new RouteLeg();
+                directLeg.ConfigureLeg(1, origin, destination, 24d, primaryMode, false, true, false);
+                route.RouteLegs.Add(directLeg);
+            }
+            else
+            {
+                var firstLeg = new RouteLeg();
+                firstLeg.ConfigureLeg(1, origin, "Departure Hub", 4d, TransportMode.TRUCK, true, false, false);
+                route.RouteLegs.Add(firstLeg);
 
-            var mainLeg = new RouteLeg();
-            mainLeg.ConfigureLeg(2, "Departure Hub", "Arrival Hub", 16d, primaryMode, false, true, false);
-            route.RouteLegs.Add(mainLeg);
+                var mainLeg = new RouteLeg();
+                mainLeg.ConfigureLeg(2, "Departure Hub", "Arrival Hub", 16d, primaryMode, false, true, false);
+                route.RouteLegs.Add(mainLeg);
 
-            var lastLeg = new RouteLeg();
-            lastLeg.ConfigureLeg(3, "Arrival Hub", destination, 4d, TransportMode.TRUCK, false, false, true);
-            route.RouteLegs.Add(lastLeg);
+                var lastLeg = new RouteLeg();
+                lastLeg.ConfigureLeg(3, "Arrival Hub", destination, 4d, TransportMode.TRUCK, false, false, true);
+                route.RouteLegs.Add(lastLeg);
+            }
 
-            return route;
+            return Task.FromResult(route);
         }
+    }
+
+    private sealed class Phase4TransportationHubMapper : ITransportationHubMapper
+    {
+        private readonly List<TransportationHub> _hubs;
+
+        public Phase4TransportationHubMapper(IEnumerable<TransportationHub> hubs)
+        {
+            _hubs = hubs.ToList();
+        }
+
+        public TransportationHub? FindById(int hubId) => _hubs.FirstOrDefault(hub => hub.GetHubId() == hubId);
+        public List<TransportationHub> FindByType(HubType hubType) => _hubs.Where(hub => hub.GetHubType() == hubType).ToList();
+        public List<TransportationHub> FindAll() => _hubs.ToList();
+        public void Insert(TransportationHub hub) => _hubs.Add(hub);
+        public void Update(TransportationHub hub) { }
+        public void Delete(int hubId) => _hubs.RemoveAll(hub => hub.GetHubId() == hubId);
     }
 
     // Stub Feature 2 adapter that exposes both the low-level carbon primitives and the route-level quote call.
@@ -1044,6 +1416,32 @@ internal static class Phase4Tests
         {
             RouteQuoteRequests.Add((route, quoteInput));
             return new RouteQuoteResult(18m + RouteQuoteRequests.Count, 4.2d + RouteQuoteRequests.Count);
+        }
+    }
+
+    private sealed class Phase4StubHttpMessageHandler : HttpMessageHandler
+    {
+        private readonly Func<HttpRequestMessage, HttpResponseMessage> _responder;
+
+        public Phase4StubHttpMessageHandler(Func<HttpRequestMessage, HttpResponseMessage> responder)
+        {
+            _responder = responder;
+        }
+
+        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+        {
+            return Task.FromResult(_responder(request));
+        }
+    }
+
+    private sealed class Phase4RecordingGoogleMapsApi : IGoogleMapsApi
+    {
+        public List<(string Origin, string Destination)> Requests { get; } = [];
+
+        public Task<double> FetchRouteDistanceKmAsync(string origin, string destination, CancellationToken cancellationToken = default)
+        {
+            Requests.Add((origin, destination));
+            throw new InvalidOperationException("Google route lookup should not have been called.");
         }
     }
 
@@ -1099,7 +1497,8 @@ internal static class Phase5Tests
     public static IReadOnlyList<PhaseTest> All { get; } =
     [
         new("GetShippingOptions returns the preference card model and order id", GetShippingOptionsReturnsPreferenceCards),
-        new("SelectShippingPreference returns the confirmed selection result", SelectShippingPreferenceReturnsSelectionResult)
+        new("SelectShippingPreference returns the confirmed selection result", SelectShippingPreferenceReturnsSelectionResult),
+        new("SelectShippingPreference re-renders preference cards when route resolution fails", SelectShippingPreferenceRerendersOptionsWhenRouteResolutionFails)
     ];
 
     private static void GetShippingOptionsReturnsPreferenceCards()
@@ -1132,6 +1531,30 @@ internal static class Phase5Tests
         TestAssertions.AssertEqual(expectedSelection, model);
     }
 
+    private static void SelectShippingPreferenceRerendersOptionsWhenRouteResolutionFails()
+    {
+        var options = CreateControllerOptions();
+        var service = new ControllerShippingOptionService(
+            options,
+            CreateSelectionResult(),
+            new RouteResolutionException("At least two distinct airport addresses are required for PLANE route generation."));
+        var controller = new ShippingOptionsController(service);
+
+        var result = controller.SelectShippingPreference(42, PreferenceType.FAST, CancellationToken.None).GetAwaiter().GetResult();
+        var viewResult = AssertViewResult(result);
+        var model = AssertModel<IReadOnlyList<ShippingPreferenceCard>>(viewResult);
+
+        TestAssertions.AssertEqual(42, service.LastSelectionRequest?.OrderId);
+        TestAssertions.AssertEqual(PreferenceType.FAST, service.LastSelectionRequest?.PreferenceType);
+        TestAssertions.AssertEqual(42, service.LastGetOrderId);
+        TestAssertions.AssertEqual(42, viewResult.ViewData["OrderId"]);
+        TestAssertions.AssertTrue(
+            string.Equals(viewResult.ViewName, "~/Views/Module3/P2-1/ShippingOptions/Index.cshtml", StringComparison.Ordinal),
+            "Expected the controller to re-render the shipping options page.");
+        TestAssertions.AssertEqual(options.Count, model.Count);
+        TestAssertions.AssertTrue(controller.ModelState.ErrorCount > 0, "Expected route-resolution failures to be added to ModelState.");
+    }
+
     private static ViewResult AssertViewResult(IActionResult actionResult)
     {
         return actionResult as ViewResult
@@ -1160,13 +1583,16 @@ internal static class Phase5Tests
     {
         private readonly IReadOnlyList<ShippingPreferenceCard> _options;
         private readonly ShippingSelectionResult _selectionResult;
+        private readonly Exception? _confirmException;
 
         public ControllerShippingOptionService(
             IReadOnlyList<ShippingPreferenceCard> options,
-            ShippingSelectionResult selectionResult)
+            ShippingSelectionResult selectionResult,
+            Exception? confirmException = null)
         {
             _options = options;
             _selectionResult = selectionResult;
+            _confirmException = confirmException;
         }
 
         public int? LastGetOrderId { get; private set; }
@@ -1181,6 +1607,11 @@ internal static class Phase5Tests
         public Task<ShippingSelectionResult> ConfirmPreferenceSelectionAsync(SelectShippingPreferenceRequest request, CancellationToken cancellationToken = default)
         {
             LastSelectionRequest = request;
+            if (_confirmException is not null)
+            {
+                throw _confirmException;
+            }
+
             return Task.FromResult(_selectionResult);
         }
     }
@@ -1192,6 +1623,8 @@ internal static class Phase6Tests
     public static IReadOnlyList<PhaseTest> All { get; } =
     [
         new("Feature1 DI registration resolves the shipping options stack", Feature1RegistrationResolvesExpectedServices),
+        new("Google Maps startup warning is omitted when API key is configured", GoogleMapsStartupWarningIsOmittedWhenApiKeyIsConfigured),
+        new("Google Maps startup warning is returned when API key is missing", GoogleMapsStartupWarningIsReturnedWhenApiKeyIsMissing),
         new("Home page exposes a temporary shipping options entry form", HomePageExposesShippingOptionsEntryForm)
     ];
 
@@ -1218,12 +1651,49 @@ internal static class Phase6Tests
         TestAssertions.AssertTrue(scopedProvider.GetService<IShippingOptionMapper>() is ShippingOptionMapper, "Expected shipping option mapper registration.");
         TestAssertions.AssertTrue(scopedProvider.GetService<IOrderService>() is ShippingOrderContextService, "Expected order context service registration.");
         TestAssertions.AssertTrue(scopedProvider.GetService<IRoutingService>() is RouteManager, "Expected routing service registration.");
+        TestAssertions.AssertTrue(scopedProvider.GetService<IGoogleMapsApi>() is GoogleMapsAPI, "Expected Google Maps API registration.");
         TestAssertions.AssertTrue(scopedProvider.GetService<ITransportCarbonService>() is ProRental.Domain.Module3.P2_1.Controls.TransportCarbonManager, "Expected transport carbon service registration.");
         TestAssertions.AssertTrue(scopedProvider.GetService<IShippingOptionService>() is ShippingOptionManager, "Expected shipping option manager registration.");
         TestAssertions.AssertTrue(scopedProvider.GetService<IRankingService>() is RankingManager, "Expected ranking manager registration.");
 
         var strategies = scopedProvider.GetServices<IRankingStrategy>().Select(strategy => strategy.PreferenceType).OrderBy(value => value).ToArray();
         TestAssertions.AssertSequence(new[] { PreferenceType.FAST, PreferenceType.CHEAP, PreferenceType.GREEN }.OrderBy(value => value), strategies);
+    }
+
+    private static void GoogleMapsStartupWarningIsOmittedWhenApiKeyIsConfigured()
+    {
+        var configuration = new ConfigurationBuilder()
+            .AddInMemoryCollection(new Dictionary<string, string?>
+            {
+                [GoogleMapsConfigurationDiagnostics.ApiKeyConfigPath] = "test-key"
+            })
+            .Build();
+
+        var warning = GoogleMapsConfigurationDiagnostics.GetMissingApiKeyWarning(configuration);
+
+        TestAssertions.AssertNull(warning);
+    }
+
+    private static void GoogleMapsStartupWarningIsReturnedWhenApiKeyIsMissing()
+    {
+        var configuration = new ConfigurationBuilder()
+            .AddInMemoryCollection(new Dictionary<string, string?>
+            {
+                [GoogleMapsConfigurationDiagnostics.ApiKeyConfigPath] = string.Empty
+            })
+            .Build();
+
+        var warning = GoogleMapsConfigurationDiagnostics.GetMissingApiKeyWarning(configuration);
+
+        TestAssertions.AssertTrue(
+            !string.IsNullOrWhiteSpace(warning),
+            "Expected a startup warning when the Google Maps API key is missing.");
+        TestAssertions.AssertTrue(
+            warning!.Contains("GoogleMaps__ApiKey", StringComparison.Ordinal),
+            "Expected the startup warning to point to the environment variable name.");
+        TestAssertions.AssertTrue(
+            warning.Contains("GoogleMaps:ApiKey", StringComparison.Ordinal),
+            "Expected the startup warning to point to the user-secrets key name.");
     }
 
     private static void HomePageExposesShippingOptionsEntryForm()
@@ -1243,7 +1713,19 @@ internal static class Phase7Tests
     public static IReadOnlyList<PhaseTest> All { get; } =
     [
         new("Feature1 shows three preference cards without persisting shipping options", Feature1ShowsPreferenceCardsWithoutPersistingOptions),
+        new("Feature1 FAST selection falls back to direct TRAIN for same-country orders", Feature1FastSelectionFallsBackToTrainWhenOrderIsSameCountry),
+        new("Feature1 CHEAP selection falls back to direct TRUCK for same-country orders", Feature1CheapSelectionFallsBackToTruckWhenOrderIsSameCountry),
         new("Feature1 selection writes one persisted option and checkout.option_id end-to-end for multi-item orders", Feature1AppliesSelectionEndToEnd),
+        new("Feature1 GREEN selection falls back to SHIP when direct Google ground routing fails", Feature1GreenSelectionFallsBackToShipWhenTrainRouteUnavailable),
+        new("RouteManager builds PLANE routes using warehouse-country and destination-country airports", RouteManagerBuildsPlaneRouteWithDistinctAirports),
+        new("RouteManager builds SHIP routes using warehouse-country and destination-country ports", RouteManagerBuildsShipRouteWithDistinctPorts),
+        new("RouteManager builds direct TRAIN routes from warehouse to customer", RouteManagerBuildsDirectTrainRoute),
+        new("RouteManager falls back from TRAIN to SHIP when Google returns no direct ground route", RouteManagerFallsBackFromTrainToShipWhenGoogleReturnsNoDirectGroundRoute),
+        new("RouteManager does not fall back from TRAIN to SHIP when Google API key is missing", RouteManagerDoesNotFallbackFromTrainToShipWhenGoogleApiKeyIsMissing),
+        new("RouteManager fallback to SHIP fails cleanly without a destination-country port", RouteManagerFallbackToShipFailsCleanlyWithoutDistinctPorts),
+        new("RouteManager rejects PLANE routes without distinct same-country airports", RouteManagerRejectsPlaneRouteWithoutDistinctAirports),
+        new("RouteManager rejects SHIP routes without distinct same-country ports", RouteManagerRejectsShipRouteWithoutDistinctPorts),
+        new("RouteManager rejects PLANE routes when the destination country is unsupported", RouteManagerRejectsPlaneRouteWhenDestinationCountryIsUnsupported),
         new("Feature1 order context aggregates real multi-item order inputs", Feature1OrderContextResolvesRealInputs),
         new("Feature1 order context rejects orders without items", Feature1OrderContextRejectsOrdersWithoutItems),
         new("Feature1 confirm flow rolls back route and option writes when checkout selection fails", Feature1SelectionRollsBackOnFailure)
@@ -1255,14 +1737,88 @@ internal static class Phase7Tests
         using var transaction = context.Database.BeginTransaction();
 
         var snapshot = Phase3Tests.CreateOrderFixture(context);
-        var manager = CreateManager(context);
+        var manager = CreateManager(
+            context,
+            transportationHubMapper: new StubTransportationHubMapper(
+            [
+                CreateWarehouseHub(snapshot.WarehouseHubId, Phase3Tests.WarehouseAddress)
+            ]));
 
         var options = manager.GetPreferenceChoicesForOrderAsync(snapshot.OrderId).GetAwaiter().GetResult();
         var persistedOptions = new ShippingOptionMapper(context).FindByOrderIdAsync(snapshot.OrderId).GetAwaiter().GetResult();
 
         TestAssertions.AssertEqual(3, options.Count);
         TestAssertions.AssertSequence(new[] { PreferenceType.FAST, PreferenceType.CHEAP, PreferenceType.GREEN }, options.Select(option => option.PreferenceType));
+        TestAssertions.AssertEqual("TRAIN", options.Single(option => option.PreferenceType == PreferenceType.FAST).AllowedModesLabel);
+        TestAssertions.AssertEqual("TRUCK", options.Single(option => option.PreferenceType == PreferenceType.CHEAP).AllowedModesLabel);
+        TestAssertions.AssertEqual("TRAIN", options.Single(option => option.PreferenceType == PreferenceType.GREEN).AllowedModesLabel);
         TestAssertions.AssertEqual(0, persistedOptions.Count);
+
+        transaction.Rollback();
+    }
+
+    private static void Feature1FastSelectionFallsBackToTrainWhenOrderIsSameCountry()
+    {
+        using var context = Phase3Tests.CreateDbContext();
+        using var transaction = context.Database.BeginTransaction();
+
+        var snapshot = Phase3Tests.CreateOrderFixture(context, includeAdditionalOrderItem: true);
+        var manager = CreateManager(
+            context,
+            transportationHubMapper: new StubTransportationHubMapper(
+            [
+                CreateWarehouseHub(snapshot.WarehouseHubId, Phase3Tests.WarehouseAddress)
+            ]));
+
+        var result = manager.ConfirmPreferenceSelectionAsync(
+            new SelectShippingPreferenceRequest(snapshot.OrderId, PreferenceType.FAST)).GetAwaiter().GetResult();
+
+        context.ChangeTracker.Clear();
+        var persistedOption = new ShippingOptionMapper(context).FindByOrderIdAsync(snapshot.OrderId).GetAwaiter().GetResult().Single();
+        var routeId = persistedOption.GetSummary().RouteId
+            ?? throw new InvalidOperationException("Expected persisted option to reference a route.");
+        var route = context.DeliveryRoutes
+            .Include(entity => entity.RouteLegs)
+            .First(entity => EF.Property<int>(entity, "RouteId") == routeId);
+        var routeLegs = route.GetOrderedRouteLegs();
+
+        TestAssertions.AssertEqual("TRAIN", result.TransportModeLabel);
+        TestAssertions.AssertEqual(TransportMode.TRAIN, persistedOption.GetSummary().TransportMode);
+        TestAssertions.AssertEqual(1, routeLegs.Count);
+        TestAssertions.AssertEqual(TransportMode.TRAIN, routeLegs[0].GetTransportMode() ?? throw new InvalidOperationException("Expected TRAIN main leg."));
+
+        transaction.Rollback();
+    }
+
+    private static void Feature1CheapSelectionFallsBackToTruckWhenOrderIsSameCountry()
+    {
+        using var context = Phase3Tests.CreateDbContext();
+        using var transaction = context.Database.BeginTransaction();
+
+        var snapshot = Phase3Tests.CreateOrderFixture(context, includeAdditionalOrderItem: true);
+        var manager = CreateManager(
+            context,
+            transportationHubMapper: new StubTransportationHubMapper(
+            [
+                CreateWarehouseHub(snapshot.WarehouseHubId, Phase3Tests.WarehouseAddress)
+            ]));
+
+        var result = manager.ConfirmPreferenceSelectionAsync(
+            new SelectShippingPreferenceRequest(snapshot.OrderId, PreferenceType.CHEAP)).GetAwaiter().GetResult();
+
+        context.ChangeTracker.Clear();
+        var persistedOption = new ShippingOptionMapper(context).FindByOrderIdAsync(snapshot.OrderId).GetAwaiter().GetResult().Single();
+        var routeId = persistedOption.GetSummary().RouteId
+            ?? throw new InvalidOperationException("Expected persisted option to reference a route.");
+        var route = context.DeliveryRoutes
+            .Include(entity => entity.RouteLegs)
+            .First(entity => EF.Property<int>(entity, "RouteId") == routeId);
+        var routeLegs = route.GetOrderedRouteLegs();
+
+        TestAssertions.AssertEqual("TRUCK", result.TransportModeLabel);
+        TestAssertions.AssertEqual(TransportMode.TRUCK, persistedOption.GetSummary().TransportMode);
+        TestAssertions.AssertEqual(1, routeLegs.Count);
+        TestAssertions.AssertEqual(TransportMode.TRUCK, routeLegs[0].GetTransportMode() ?? throw new InvalidOperationException("Expected TRUCK main leg."));
 
         transaction.Rollback();
     }
@@ -1273,7 +1829,12 @@ internal static class Phase7Tests
         using var transaction = context.Database.BeginTransaction();
 
         var snapshot = Phase3Tests.CreateOrderFixture(context, includeAdditionalOrderItem: true);
-        var manager = CreateManager(context);
+        var manager = CreateManager(
+            context,
+            transportationHubMapper: new StubTransportationHubMapper(
+            [
+                CreateWarehouseHub(snapshot.WarehouseHubId, Phase3Tests.WarehouseAddress)
+            ]));
 
         var result = manager.ConfirmPreferenceSelectionAsync(
             new SelectShippingPreferenceRequest(snapshot.OrderId, PreferenceType.GREEN)).GetAwaiter().GetResult();
@@ -1290,19 +1851,374 @@ internal static class Phase7Tests
             .Include(entity => entity.RouteLegs)
             .First(entity => EF.Property<int>(entity, "RouteId") == routeId);
         var routeLegs = route.GetOrderedRouteLegs();
+        var resolvedWarehouseAddress = route.GetOriginAddress();
 
         TestAssertions.AssertEqual(1, persistedOptions.Count);
         TestAssertions.AssertEqual(result.OptionId, checkout.GetSelectionState().SelectedOptionId);
         TestAssertions.AssertEqual(PreferenceType.GREEN, result.PreferenceType);
         TestAssertions.AssertTrue(result.OptionId > 0, "Expected a persisted shipping option id.");
         TestAssertions.AssertEqual("TRAIN", result.TransportModeLabel);
+        TestAssertions.AssertEqual(1, routeLegs.Count);
+        TestAssertions.AssertTrue(routeLegs[0].GetIsMainTransport() == true, "Expected the TRAIN leg to be marked as the main transport leg.");
+        TestAssertions.AssertEqual(TransportMode.TRAIN, routeLegs[0].GetTransportMode() ?? throw new InvalidOperationException("Expected main leg transport mode."));
+        TestAssertions.AssertEqual(resolvedWarehouseAddress, routeLegs[0].GetStartPoint());
+        TestAssertions.AssertEqual(Phase3Tests.CustomerAddress, routeLegs[0].GetEndPoint());
+
+        transaction.Rollback();
+    }
+
+    private static void Feature1GreenSelectionFallsBackToShipWhenTrainRouteUnavailable()
+    {
+        using var context = Phase3Tests.CreateDbContext();
+        using var transaction = context.Database.BeginTransaction();
+
+        var snapshot = Phase3Tests.CreateOrderFixture(
+            context,
+            includeAdditionalOrderItem: true,
+            customerAddress: Phase3Tests.UnitedStatesCustomerAddress);
+        var routeIdsBefore = context.DeliveryRoutes
+            .Select(entity => EF.Property<int>(entity, "RouteId"))
+            .ToArray();
+        var warehouseAddress = new TransportationHubMapper(context).FindByType(HubType.WAREHOUSE)
+            .Select(hub => hub.GetAddress())
+            .First(address => !string.IsNullOrWhiteSpace(address));
+        var manager = new ShippingOptionManager(
+            new ShippingOptionMapper(context),
+            new ShippingOrderContextService(context, new StubInventoryService(), new TransportationHubMapper(context)),
+            CreateRouteManager(
+                context,
+                new StubTransportationHubMapper(
+                [
+                    CreateWarehouseHub(1, warehouseAddress),
+                    CreateShippingPortHub(2, Phase3Tests.ShippingPortAddressOne, "SGP", "Singapore Port", latitude: 0d, longitude: 0d),
+                    CreateShippingPortHub(3, Phase3Tests.UnitedStatesShippingPortAddress, "LAX", "Port of Los Angeles", latitude: 1d, longitude: 0d)
+                ]),
+                new StubGoogleMapsApi(
+                new Dictionary<(string Origin, string Destination), double>
+                {
+                    [(warehouseAddress, Phase3Tests.ShippingPortAddressOne)] = 11d,
+                    [(Phase3Tests.UnitedStatesShippingPortAddress, Phase3Tests.UnitedStatesCustomerAddress)] = 9d
+                },
+                new Dictionary<(string Origin, string Destination), Exception>
+                {
+                    [(warehouseAddress, Phase3Tests.UnitedStatesCustomerAddress)] =
+                        new RouteResolutionException($"Google Maps did not return a route distance for '{warehouseAddress}' to '{Phase3Tests.UnitedStatesCustomerAddress}'.")
+                })),
+            new TransportationHubMapper(context),
+            new ProRental.Domain.Module3.P2_1.Controls.TransportCarbonManager(new PricingRuleGateway(context), new StubHubCarbonService()),
+            context);
+
+        var result = manager.ConfirmPreferenceSelectionAsync(
+            new SelectShippingPreferenceRequest(snapshot.OrderId, PreferenceType.GREEN)).GetAwaiter().GetResult();
+
+        context.ChangeTracker.Clear();
+        var persistedOptions = new ShippingOptionMapper(context).FindByOrderIdAsync(snapshot.OrderId).GetAwaiter().GetResult();
+        var persistedOption = persistedOptions.Single();
+        var routeId = persistedOption.GetSummary().RouteId
+            ?? throw new InvalidOperationException("Expected persisted option to reference a route.");
+        var route = context.DeliveryRoutes
+            .Include(entity => entity.RouteLegs)
+            .First(entity => EF.Property<int>(entity, "RouteId") == routeId);
+        var routeLegs = route.GetOrderedRouteLegs();
+        var newRouteIds = context.DeliveryRoutes
+            .Select(entity => EF.Property<int>(entity, "RouteId"))
+            .Where(id => !routeIdsBefore.Contains(id))
+            .ToArray();
+
+        TestAssertions.AssertEqual(PreferenceType.GREEN, result.PreferenceType);
+        TestAssertions.AssertEqual("SHIP", result.TransportModeLabel);
+        TestAssertions.AssertEqual(TransportMode.SHIP, persistedOption.GetSummary().TransportMode);
         TestAssertions.AssertEqual(3, routeLegs.Count);
-        TestAssertions.AssertTrue(routeLegs[0].GetIsFirstMile() == true, "Expected first leg to be marked as first-mile.");
-        TestAssertions.AssertEqual(TransportMode.TRUCK, routeLegs[0].GetTransportMode() ?? throw new InvalidOperationException("Expected first leg transport mode."));
-        TestAssertions.AssertTrue(routeLegs[1].GetIsMainTransport() == true, "Expected second leg to be marked as main transport.");
-        TestAssertions.AssertEqual(TransportMode.TRAIN, routeLegs[1].GetTransportMode() ?? throw new InvalidOperationException("Expected main leg transport mode."));
-        TestAssertions.AssertTrue(routeLegs[2].GetIsLastMile() == true, "Expected final leg to be marked as last-mile.");
-        TestAssertions.AssertEqual(TransportMode.TRUCK, routeLegs[2].GetTransportMode() ?? throw new InvalidOperationException("Expected last leg transport mode."));
+        TestAssertions.AssertEqual(TransportMode.SHIP, routeLegs[1].GetTransportMode() ?? throw new InvalidOperationException("Expected SHIP main leg."));
+        TestAssertions.AssertEqual(131.2d, route.GetTotalDistanceKm());
+        TestAssertions.AssertEqual(1, newRouteIds.Length);
+
+        transaction.Rollback();
+    }
+
+    private static void RouteManagerBuildsPlaneRouteWithDistinctAirports()
+    {
+        using var context = Phase3Tests.CreateDbContext();
+        using var transaction = context.Database.BeginTransaction();
+        var googleMapsApi = new StubGoogleMapsApi(new Dictionary<(string Origin, string Destination), double>
+        {
+            [(Phase3Tests.WarehouseAddress, Phase3Tests.AirportAddressOne)] = 18d,
+            [(Phase3Tests.AirportAddressTwo, Phase3Tests.JapanCustomerAddress)] = 14d
+        });
+
+        var routeManager = CreateRouteManager(
+            context,
+            new StubTransportationHubMapper(
+            [
+                CreateWarehouseHub(1, Phase3Tests.WarehouseAddress),
+                CreateAirportHub(2, Phase3Tests.AirportAddressOne, "SIN", "Singapore Changi Airport", latitude: 0d, longitude: 1d),
+                CreateAirportHub(3, Phase3Tests.AirportAddressTwo, "NRT", "Narita International Airport", latitude: 0d, longitude: 0d)
+            ]),
+            googleMapsApi);
+
+        var route = routeManager.CreateMultiModalRouteAsync("ProRental Warehouse", Phase3Tests.JapanCustomerAddress, [TransportMode.PLANE]).GetAwaiter().GetResult();
+        var routeLegs = route.GetOrderedRouteLegs();
+
+        TestAssertions.AssertEqual(3, routeLegs.Count);
+        TestAssertions.AssertEqual(Phase3Tests.WarehouseAddress, routeLegs[0].GetStartPoint());
+        TestAssertions.AssertEqual(Phase3Tests.AirportAddressOne, routeLegs[0].GetEndPoint());
+        TestAssertions.AssertEqual(Phase3Tests.AirportAddressOne, routeLegs[1].GetStartPoint());
+        TestAssertions.AssertEqual(Phase3Tests.AirportAddressTwo, routeLegs[1].GetEndPoint());
+        TestAssertions.AssertEqual(Phase3Tests.AirportAddressTwo, routeLegs[2].GetStartPoint());
+        TestAssertions.AssertEqual(Phase3Tests.JapanCustomerAddress, routeLegs[2].GetEndPoint());
+        TestAssertions.AssertEqual(143.2d, route.GetTotalDistanceKm());
+        TestAssertions.AssertSequence(
+            new[]
+            {
+                (Phase3Tests.WarehouseAddress, Phase3Tests.AirportAddressOne),
+                (Phase3Tests.AirportAddressTwo, Phase3Tests.JapanCustomerAddress)
+            },
+            googleMapsApi.Requests);
+
+        transaction.Rollback();
+    }
+
+    private static void RouteManagerBuildsShipRouteWithDistinctPorts()
+    {
+        using var context = Phase3Tests.CreateDbContext();
+        using var transaction = context.Database.BeginTransaction();
+        var googleMapsApi = new StubGoogleMapsApi(new Dictionary<(string Origin, string Destination), double>
+        {
+            [(Phase3Tests.WarehouseAddress, Phase3Tests.ShippingPortAddressOne)] = 11d,
+            [(Phase3Tests.UnitedStatesShippingPortAddress, Phase3Tests.UnitedStatesCustomerAddress)] = 9d
+        });
+
+        var routeManager = CreateRouteManager(
+            context,
+            new StubTransportationHubMapper(
+            [
+                CreateWarehouseHub(1, Phase3Tests.WarehouseAddress),
+                CreateShippingPortHub(2, Phase3Tests.ShippingPortAddressOne, "SGP", "Singapore Port", latitude: 0d, longitude: 0d),
+                CreateShippingPortHub(3, Phase3Tests.UnitedStatesShippingPortAddress, "LAX", "Port of Los Angeles", latitude: 1d, longitude: 0d)
+            ]),
+            googleMapsApi);
+
+        var route = routeManager.CreateMultiModalRouteAsync("ProRental Warehouse", Phase3Tests.UnitedStatesCustomerAddress, [TransportMode.SHIP]).GetAwaiter().GetResult();
+        var routeLegs = route.GetOrderedRouteLegs();
+
+        TestAssertions.AssertEqual(3, routeLegs.Count);
+        TestAssertions.AssertEqual(Phase3Tests.WarehouseAddress, routeLegs[0].GetStartPoint());
+        TestAssertions.AssertEqual(Phase3Tests.ShippingPortAddressOne, routeLegs[0].GetEndPoint());
+        TestAssertions.AssertEqual(Phase3Tests.ShippingPortAddressOne, routeLegs[1].GetStartPoint());
+        TestAssertions.AssertEqual(Phase3Tests.UnitedStatesShippingPortAddress, routeLegs[1].GetEndPoint());
+        TestAssertions.AssertEqual(Phase3Tests.UnitedStatesShippingPortAddress, routeLegs[2].GetStartPoint());
+        TestAssertions.AssertEqual(Phase3Tests.UnitedStatesCustomerAddress, routeLegs[2].GetEndPoint());
+        TestAssertions.AssertEqual(131.2d, route.GetTotalDistanceKm());
+        TestAssertions.AssertSequence(
+            new[]
+            {
+                (Phase3Tests.WarehouseAddress, Phase3Tests.ShippingPortAddressOne),
+                (Phase3Tests.UnitedStatesShippingPortAddress, Phase3Tests.UnitedStatesCustomerAddress)
+            },
+            googleMapsApi.Requests);
+
+        transaction.Rollback();
+    }
+
+    private static void RouteManagerBuildsDirectTrainRoute()
+    {
+        using var context = Phase3Tests.CreateDbContext();
+        using var transaction = context.Database.BeginTransaction();
+
+        var routeManager = CreateRouteManager(
+            context,
+            new StubTransportationHubMapper([CreateWarehouseHub(1, Phase3Tests.WarehouseAddress)]),
+            new StubGoogleMapsApi(new Dictionary<(string Origin, string Destination), double>
+            {
+                [(Phase3Tests.WarehouseAddress, Phase3Tests.CustomerAddress)] = 24d
+            }));
+
+        var route = routeManager.CreateMultiModalRouteAsync("ProRental Warehouse", Phase3Tests.CustomerAddress, [TransportMode.TRAIN]).GetAwaiter().GetResult();
+        var routeLegs = route.GetOrderedRouteLegs();
+
+        TestAssertions.AssertEqual(1, routeLegs.Count);
+        TestAssertions.AssertEqual(Phase3Tests.WarehouseAddress, routeLegs[0].GetStartPoint());
+        TestAssertions.AssertEqual(Phase3Tests.CustomerAddress, routeLegs[0].GetEndPoint());
+        TestAssertions.AssertTrue(routeLegs[0].GetIsMainTransport() == true, "Expected the TRAIN leg to be marked as main transport.");
+        TestAssertions.AssertEqual(24d, route.GetTotalDistanceKm());
+
+        transaction.Rollback();
+    }
+
+    private static void RouteManagerFallsBackFromTrainToShipWhenGoogleReturnsNoDirectGroundRoute()
+    {
+        using var context = Phase3Tests.CreateDbContext();
+        using var transaction = context.Database.BeginTransaction();
+
+        var routeManager = CreateRouteManager(
+            context,
+            new StubTransportationHubMapper(
+            [
+                CreateWarehouseHub(1, Phase3Tests.WarehouseAddress),
+                CreateShippingPortHub(2, Phase3Tests.ShippingPortAddressOne, "SGP", "Singapore Port", latitude: 0d, longitude: 0d),
+                CreateShippingPortHub(3, Phase3Tests.UnitedStatesShippingPortAddress, "LAX", "Port of Los Angeles", latitude: 1d, longitude: 0d)
+            ]),
+            new StubGoogleMapsApi(
+                new Dictionary<(string Origin, string Destination), double>
+                {
+                    [(Phase3Tests.WarehouseAddress, Phase3Tests.ShippingPortAddressOne)] = 11d,
+                    [(Phase3Tests.UnitedStatesShippingPortAddress, Phase3Tests.UnitedStatesCustomerAddress)] = 9d
+                },
+                new Dictionary<(string Origin, string Destination), Exception>
+                {
+                    [(Phase3Tests.WarehouseAddress, Phase3Tests.UnitedStatesCustomerAddress)] =
+                        new RouteResolutionException($"Google Maps did not return a route distance for '{Phase3Tests.WarehouseAddress}' to '{Phase3Tests.UnitedStatesCustomerAddress}'.")
+                }));
+
+        var route = routeManager.CreateMultiModalRouteAsync("ProRental Warehouse", Phase3Tests.UnitedStatesCustomerAddress, [TransportMode.TRAIN, TransportMode.SHIP]).GetAwaiter().GetResult();
+        var routeLegs = route.GetOrderedRouteLegs();
+
+        TestAssertions.AssertEqual(3, routeLegs.Count);
+        TestAssertions.AssertEqual(TransportMode.SHIP, routeLegs[1].GetTransportMode() ?? throw new InvalidOperationException("Expected SHIP main leg."));
+        TestAssertions.AssertEqual(131.2d, route.GetTotalDistanceKm());
+
+        transaction.Rollback();
+    }
+
+    private static void RouteManagerDoesNotFallbackFromTrainToShipWhenGoogleApiKeyIsMissing()
+    {
+        using var context = Phase3Tests.CreateDbContext();
+        using var transaction = context.Database.BeginTransaction();
+
+        var routeCountBefore = context.DeliveryRoutes.Count();
+        var routeManager = CreateRouteManager(
+            context,
+            new StubTransportationHubMapper(
+            [
+                CreateWarehouseHub(1, Phase3Tests.WarehouseAddress),
+                CreateShippingPortHub(2, Phase3Tests.ShippingPortAddressOne, "SGP", "Singapore Port", latitude: 0d, longitude: 0d),
+                CreateShippingPortHub(3, Phase3Tests.UnitedStatesShippingPortAddress, "LAX", "Port of Los Angeles", latitude: 1d, longitude: 0d)
+            ]),
+            CreateGoogleMapsApi(_ => throw new InvalidOperationException("Google should not be called without an API key."), apiKey: string.Empty));
+
+        var exception = TestAssertions.AssertThrows<RouteResolutionException>(
+            () => routeManager.CreateMultiModalRouteAsync("ProRental Warehouse", Phase3Tests.UnitedStatesCustomerAddress, [TransportMode.TRAIN, TransportMode.SHIP]).GetAwaiter().GetResult(),
+            "Expected TRAIN->SHIP fallback not to occur when the Google API key is missing.");
+
+        TestAssertions.AssertTrue(
+            exception.Message.Contains("configured API key", StringComparison.Ordinal),
+            "Expected the missing API key error to be surfaced.");
+        TestAssertions.AssertEqual(routeCountBefore, context.DeliveryRoutes.Count());
+
+        transaction.Rollback();
+    }
+
+    private static void RouteManagerFallbackToShipFailsCleanlyWithoutDistinctPorts()
+    {
+        using var context = Phase3Tests.CreateDbContext();
+        using var transaction = context.Database.BeginTransaction();
+
+        var routeCountBefore = context.DeliveryRoutes.Count();
+        var routeManager = CreateRouteManager(
+            context,
+            new StubTransportationHubMapper(
+            [
+                CreateWarehouseHub(1, Phase3Tests.WarehouseAddress),
+                CreateShippingPortHub(2, Phase3Tests.ShippingPortAddressOne, "SGP", "Singapore Port", latitude: 0d, longitude: 0d)
+            ]),
+            new StubGoogleMapsApi(
+                distances: null,
+                exceptions: new Dictionary<(string Origin, string Destination), Exception>
+                {
+                    [(Phase3Tests.WarehouseAddress, Phase3Tests.UnitedStatesCustomerAddress)] =
+                        new RouteResolutionException($"Google Maps did not return a route distance for '{Phase3Tests.WarehouseAddress}' to '{Phase3Tests.UnitedStatesCustomerAddress}'.")
+                }));
+
+        var exception = TestAssertions.AssertThrows<RouteResolutionException>(
+            () => routeManager.CreateMultiModalRouteAsync("ProRental Warehouse", Phase3Tests.UnitedStatesCustomerAddress, [TransportMode.TRAIN, TransportMode.SHIP]).GetAwaiter().GetResult(),
+            "Expected GREEN fallback to fail when a destination-country port is unavailable.");
+
+        TestAssertions.AssertTrue(
+            exception.Message.Contains("customer destination country 'US'", StringComparison.Ordinal),
+            "Expected the missing destination-country port error after TRAIN fallback.");
+        TestAssertions.AssertEqual(routeCountBefore, context.DeliveryRoutes.Count());
+
+        transaction.Rollback();
+    }
+
+    private static void RouteManagerRejectsPlaneRouteWithoutDistinctAirports()
+    {
+        using var context = Phase3Tests.CreateDbContext();
+        using var transaction = context.Database.BeginTransaction();
+
+        var routeCountBefore = context.DeliveryRoutes.Count();
+        var routeManager = CreateRouteManager(
+            context,
+            new StubTransportationHubMapper(
+            [
+                CreateWarehouseHub(1, Phase3Tests.WarehouseAddress),
+                CreateAirportHub(2, Phase3Tests.AirportAddressOne, "SIN", "Singapore Changi Airport")
+            ]),
+            new StubGoogleMapsApi());
+
+        var exception = TestAssertions.AssertThrows<RouteResolutionException>(
+            () => routeManager.CreateMultiModalRouteAsync("ProRental Warehouse", Phase3Tests.CustomerAddress, [TransportMode.PLANE]).GetAwaiter().GetResult(),
+            "Expected PLANE route generation to fail without a second airport.");
+
+        TestAssertions.AssertTrue(
+            exception.Message.Contains("Distinct airport addresses", StringComparison.Ordinal),
+            "Expected a missing-airport error message.");
+        TestAssertions.AssertEqual(routeCountBefore, context.DeliveryRoutes.Count());
+
+        transaction.Rollback();
+    }
+
+    private static void RouteManagerRejectsShipRouteWithoutDistinctPorts()
+    {
+        using var context = Phase3Tests.CreateDbContext();
+        using var transaction = context.Database.BeginTransaction();
+
+        var routeCountBefore = context.DeliveryRoutes.Count();
+        var routeManager = CreateRouteManager(
+            context,
+            new StubTransportationHubMapper(
+            [
+                CreateWarehouseHub(1, Phase3Tests.WarehouseAddress),
+                CreateShippingPortHub(2, Phase3Tests.ShippingPortAddressOne, "SGP", "Singapore Port")
+            ]),
+            new StubGoogleMapsApi());
+
+        var exception = TestAssertions.AssertThrows<RouteResolutionException>(
+            () => routeManager.CreateMultiModalRouteAsync("ProRental Warehouse", Phase3Tests.CustomerAddress, [TransportMode.SHIP]).GetAwaiter().GetResult(),
+            "Expected SHIP route generation to fail without a second shipping port.");
+
+        TestAssertions.AssertTrue(
+            exception.Message.Contains("Distinct shipping port addresses", StringComparison.Ordinal),
+            "Expected a missing-port error message.");
+        TestAssertions.AssertEqual(routeCountBefore, context.DeliveryRoutes.Count());
+
+        transaction.Rollback();
+    }
+
+    private static void RouteManagerRejectsPlaneRouteWhenDestinationCountryIsUnsupported()
+    {
+        using var context = Phase3Tests.CreateDbContext();
+        using var transaction = context.Database.BeginTransaction();
+
+        var routeCountBefore = context.DeliveryRoutes.Count();
+        var routeManager = CreateRouteManager(
+            context,
+            new StubTransportationHubMapper(
+            [
+                CreateWarehouseHub(1, Phase3Tests.WarehouseAddress),
+                CreateAirportHub(2, Phase3Tests.AirportAddressOne, "SIN", "Singapore Changi Airport"),
+                CreateAirportHub(3, Phase3Tests.AirportAddressTwo, "NRT", "Narita International Airport")
+            ]),
+            new StubGoogleMapsApi());
+
+        var exception = TestAssertions.AssertThrows<RouteResolutionException>(
+            () => routeManager.CreateMultiModalRouteAsync("ProRental Warehouse", "123 Example Road", [TransportMode.PLANE]).GetAwaiter().GetResult(),
+            "Expected PLANE route generation to fail when the destination country cannot be parsed.");
+
+        TestAssertions.AssertTrue(
+            exception.Message.Contains("supported country name or country code", StringComparison.Ordinal),
+            "Expected an unsupported-country parsing error message.");
+        TestAssertions.AssertEqual(routeCountBefore, context.DeliveryRoutes.Count());
 
         transaction.Rollback();
     }
@@ -1400,15 +2316,50 @@ internal static class Phase7Tests
         }
     }
 
-    private static ShippingOptionManager CreateManager(AppDbContext context, IShippingOptionMapper? mapper = null)
+    private static ShippingOptionManager CreateManager(
+        AppDbContext context,
+        IShippingOptionMapper? mapper = null,
+        IGoogleMapsApi? googleMapsApi = null,
+        IEnumerable<TransportationHub>? additionalHubs = null,
+        ITransportationHubMapper? transportationHubMapper = null)
     {
-        var hubMapper = new TransportationHubMapper(context);
+        var hubMapper = transportationHubMapper ?? new TransportationHubMapper(context);
+        var warehouseAddress = hubMapper.FindByType(HubType.WAREHOUSE)
+            .Select(hub => hub.GetAddress())
+            .First(address => !string.IsNullOrWhiteSpace(address));
+        if (additionalHubs is not null)
+        {
+            foreach (var hub in additionalHubs)
+            {
+                hub.SetHubId(0);
+            }
+
+            context.TransportationHubs.AddRange(additionalHubs);
+            context.SaveChanges();
+            hubMapper = new TransportationHubMapper(context);
+            warehouseAddress = hubMapper.FindByType(HubType.WAREHOUSE)
+                .Select(hub => hub.GetAddress())
+                .First(address => !string.IsNullOrWhiteSpace(address));
+        }
+
         return new ShippingOptionManager(
             mapper ?? new ShippingOptionMapper(context),
             new ShippingOrderContextService(context, new StubInventoryService(), hubMapper),
-            new RouteManager(context, hubMapper, new RouteLegBuilder(new StubRouteDistanceCalculator())),
+            CreateRouteManager(context, hubMapper, googleMapsApi ?? new StubGoogleMapsApi(new Dictionary<(string Origin, string Destination), double>
+            {
+                [(warehouseAddress, Phase3Tests.CustomerAddress)] = 24d
+            })),
+            hubMapper,
             new ProRental.Domain.Module3.P2_1.Controls.TransportCarbonManager(new PricingRuleGateway(context), new StubHubCarbonService()),
             context);
+    }
+
+    private static RouteManager CreateRouteManager(
+        AppDbContext context,
+        ITransportationHubMapper hubMapper,
+        IGoogleMapsApi googleMapsApi)
+    {
+        return new RouteManager(context, hubMapper, new RouteLegBuilder(new RouteDistanceCalculator(googleMapsApi)));
     }
 
     private static void CleanupOrderFixture(AppDbContext context, Phase3Tests.OrderFixture snapshot, IReadOnlyCollection<int> routeIdsBefore)
@@ -1478,26 +2429,171 @@ internal static class Phase7Tests
         public List<ProductStorageInfo> GetAllProductStorageInfo() => [];
     }
 
-    private sealed class StubRouteDistanceCalculator : IRouteDistanceCalculator
+    private static GoogleMapsAPI CreateGoogleMapsApi(Func<HttpRequestMessage, HttpResponseMessage> responder, string apiKey = "test-key")
     {
-        public double CalculateDistanceKm(string startPoint, string endPoint)
+        var configuration = new ConfigurationBuilder()
+            .AddInMemoryCollection(new Dictionary<string, string?>
+            {
+                ["GoogleMaps:ApiKey"] = apiKey
+            })
+            .Build();
+
+        var httpClient = new HttpClient(new StubHttpMessageHandler(responder))
         {
-            if (string.Equals(startPoint, endPoint, StringComparison.Ordinal))
+            BaseAddress = new Uri("https://routes.googleapis.com/")
+        };
+
+        return new GoogleMapsAPI(httpClient, configuration);
+    }
+
+    private static Warehouse CreateWarehouseHub(int hubId, string address)
+    {
+        var warehouse = new Warehouse();
+        warehouse.SetHubId(hubId);
+        warehouse.SetHubType(HubType.WAREHOUSE);
+        warehouse.SetAddress(address);
+        warehouse.SetCountryCode("SG");
+        warehouse.SetLatitude(1.290270);
+        warehouse.SetLongitude(103.851959);
+        warehouse.SetWarehouseCode($"WH-{hubId}");
+        warehouse.SetMaxProductCapacity(100);
+        warehouse.SetTotalWarehouseVolume(1000d);
+        return warehouse;
+    }
+
+    private static Airport CreateAirportHub(int hubId, string address, string airportCode, string airportName, double latitude = 1.0, double longitude = 103.0)
+    {
+        var airport = new Airport();
+        airport.SetHubId(hubId);
+        airport.SetHubType(HubType.AIRPORT);
+        airport.SetAddress(address);
+        airport.SetCountryCode(ResolveCountryCodeFromAddress(address));
+        airport.SetLatitude(latitude);
+        airport.SetLongitude(longitude);
+        airport.SetAirportCode(airportCode);
+        airport.SetAirportName(airportName);
+        return airport;
+    }
+
+    private static ShippingPort CreateShippingPortHub(int hubId, string address, string portCode, string portName, double latitude = 1.0, double longitude = 103.0)
+    {
+        var port = new ShippingPort();
+        port.SetHubId(hubId);
+        port.SetHubType(HubType.SHIPPING_PORT);
+        port.SetAddress(address);
+        port.SetCountryCode(ResolveCountryCodeFromAddress(address));
+        port.SetLatitude(latitude);
+        port.SetLongitude(longitude);
+        port.SetPortCode(portCode);
+        port.SetPortName(portName);
+        port.SetPortType("CONTAINER");
+        return port;
+    }
+
+    private static string ResolveCountryCodeFromAddress(string address)
+    {
+        if (address.Contains("Singapore", StringComparison.OrdinalIgnoreCase))
+        {
+            return "SG";
+        }
+
+        if (address.Contains("Japan", StringComparison.OrdinalIgnoreCase))
+        {
+            return "JP";
+        }
+
+        if (address.Contains("USA", StringComparison.OrdinalIgnoreCase) ||
+            address.Contains("United States", StringComparison.OrdinalIgnoreCase))
+        {
+            return "US";
+        }
+
+        if (address.Contains("Philippines", StringComparison.OrdinalIgnoreCase))
+        {
+            return "PH";
+        }
+
+        throw new InvalidOperationException($"Unsupported test country mapping for address '{address}'.");
+    }
+
+    private sealed class StubGoogleMapsApi : IGoogleMapsApi
+    {
+        private readonly IReadOnlyDictionary<(string Origin, string Destination), double> _distances;
+        private readonly IReadOnlyDictionary<(string Origin, string Destination), Exception> _exceptions;
+
+        public StubGoogleMapsApi(
+            IReadOnlyDictionary<(string Origin, string Destination), double>? distances = null,
+            IReadOnlyDictionary<(string Origin, string Destination), Exception>? exceptions = null)
+        {
+            _distances = distances ?? new Dictionary<(string Origin, string Destination), double>();
+            _exceptions = exceptions ?? new Dictionary<(string Origin, string Destination), Exception>();
+        }
+
+        public List<(string Origin, string Destination)> Requests { get; } = [];
+
+        public Task<double> FetchRouteDistanceKmAsync(string origin, string destination, CancellationToken cancellationToken = default)
+        {
+            Requests.Add((origin, destination));
+            if (_exceptions.TryGetValue((origin, destination), out var exception))
             {
-                return 4d;
+                throw exception;
             }
 
-            if (startPoint.StartsWith("Phase 3 Warehouse", StringComparison.Ordinal))
+            if (_distances.TryGetValue((origin, destination), out var distanceKm))
             {
-                return 4d;
+                return Task.FromResult(distanceKm);
             }
 
-            if (string.Equals(endPoint, "Phase 3 Address", StringComparison.Ordinal))
-            {
-                return 16d;
-            }
+            throw new RouteResolutionException($"No stubbed Google Maps distance was configured for '{origin}' to '{destination}'.");
+        }
+    }
 
-            return 8d;
+    private sealed class StubTransportationHubMapper : ITransportationHubMapper
+    {
+        private readonly List<TransportationHub> _hubs;
+
+        public StubTransportationHubMapper(IEnumerable<TransportationHub> hubs)
+        {
+            _hubs = hubs.ToList();
+        }
+
+        public TransportationHub? FindById(int hubId) =>
+            _hubs.FirstOrDefault(hub => hub.GetHubId() == hubId);
+
+        public List<TransportationHub> FindByType(HubType hubType) =>
+            _hubs.Where(hub => hub.GetHubType() == hubType).ToList();
+
+        public List<TransportationHub> FindAll() => _hubs.ToList();
+
+        public void Insert(TransportationHub hub) => _hubs.Add(hub);
+
+        public void Update(TransportationHub hub)
+        {
+            var index = _hubs.FindIndex(existingHub => existingHub.GetHubId() == hub.GetHubId());
+            if (index >= 0)
+            {
+                _hubs[index] = hub;
+            }
+        }
+
+        public void Delete(int hubId)
+        {
+            _hubs.RemoveAll(hub => hub.GetHubId() == hubId);
+        }
+    }
+
+    private sealed class StubHttpMessageHandler : HttpMessageHandler
+    {
+        private readonly Func<HttpRequestMessage, HttpResponseMessage> _responder;
+
+        public StubHttpMessageHandler(Func<HttpRequestMessage, HttpResponseMessage> responder)
+        {
+            _responder = responder;
+        }
+
+        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+        {
+            return Task.FromResult(_responder(request));
         }
     }
 

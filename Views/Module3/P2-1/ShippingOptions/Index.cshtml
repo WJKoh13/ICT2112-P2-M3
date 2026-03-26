@@ -12,9 +12,14 @@
         <div>
             <p class="text-uppercase text-muted small mb-1">Checkout</p>
             <h1 class="h3 mb-1">Choose a shipping preference</h1>
-            <p class="text-muted mb-0">Select one preference first. Route generation and carbon pricing will only happen after you confirm it.</p>
+            <p class="text-muted mb-0">Pick the delivery style that best fits your timeline, budget, or sustainability goals.</p>
         </div>
     </div>
+
+    @if (!ViewData.ModelState.IsValid)
+    {
+        <div asp-validation-summary="All" class="alert alert-danger mb-4"></div>
+    }
 
     @if (Model.Count == 0)
     {

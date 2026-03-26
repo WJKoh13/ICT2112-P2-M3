@@ -1,6 +1,7 @@
 using ProRental.Data.UnitOfWork;
 using ProRental.Domain.Entities;
 using ProRental.Domain.Enums;
+using ProRental.Data.Interfaces;
 using ProRental.Interfaces.Module3.P2_1;
 using ProRental.Models.Module3.P2_1;
 
@@ -26,18 +27,21 @@ public sealed class ShippingOptionManager : IShippingOptionService
     private readonly IOrderService _orderService;
     private readonly IRoutingService _routingService;
     private readonly ITransportCarbonService _transportCarbonService;
+    private readonly ITransportationHubMapper? _transportationHubMapper;
     private readonly AppDbContext? _context;
 
     public ShippingOptionManager(
         IShippingOptionMapper shippingOptionMapper,
         IOrderService orderService,
         IRoutingService routingService,
+        ITransportationHubMapper transportationHubMapper,
         ITransportCarbonService transportCarbonService,
         AppDbContext context)
     {
         _shippingOptionMapper = shippingOptionMapper;
         _orderService = orderService;
         _routingService = routingService;
+        _transportationHubMapper = transportationHubMapper;
         _transportCarbonService = transportCarbonService;
         _context = context;
     }
@@ -46,11 +50,13 @@ public sealed class ShippingOptionManager : IShippingOptionService
         IShippingOptionMapper shippingOptionMapper,
         IOrderService orderService,
         IRoutingService routingService,
+        ITransportationHubMapper? transportationHubMapper,
         ITransportCarbonService transportCarbonService)
     {
         _shippingOptionMapper = shippingOptionMapper;
         _orderService = orderService;
         _routingService = routingService;
+        _transportationHubMapper = transportationHubMapper;
         _transportCarbonService = transportCarbonService;
         _context = null;
     }
@@ -61,6 +67,7 @@ public sealed class ShippingOptionManager : IShippingOptionService
     {
         var context = await _orderService.GetShippingContextAsync(orderId, cancellationToken)
             ?? throw new InvalidOperationException($"Order '{orderId}' was not found.");
+        var isSameCountry = IsSameCountryRoute(context);
 
         return PreferenceOrder
             .Select(preferenceType =>
@@ -72,7 +79,7 @@ public sealed class ShippingOptionManager : IShippingOptionService
                     preferenceType,
                     profile.DisplayName,
                     profile.Description,
-                    string.Join(" + ", PreferenceTypeModes.AllowedModes[preferenceType]));
+                    PreferenceTypeModes.GetAllowedModesLabel(preferenceType, isSameCountry));
             })
             .ToArray();
     }
@@ -116,13 +123,11 @@ public sealed class ShippingOptionManager : IShippingOptionService
         }
 
         var profile = GetPreferenceProfile(request.PreferenceType);
-        var allowedModes = PreferenceTypeModes.AllowedModes.TryGetValue(request.PreferenceType, out var modes)
-            ? modes
-            : throw new InvalidOperationException($"No routing profile was configured for preference '{request.PreferenceType}'.");
+        var allowedModes = PreferenceTypeModes.ResolveAllowedModes(request.PreferenceType, IsSameCountryRoute(context)).ToList();
 
-        var route = _routingService.CreateMultiModalRoute(DefaultOrigin, context.DestinationAddress, [.. allowedModes]);
+        var route = await _routingService.CreateMultiModalRouteAsync(DefaultOrigin, context.DestinationAddress, [.. allowedModes]);
         var routeId = route.GetRouteId();
-        var selectedTransportMode = ResolveSelectedTransportMode(route, profile.PrimaryTransportMode);
+        var selectedTransportMode = ResolveSelectedTransportMode(route, allowedModes.FirstOrDefault());
         var quoteInput = new RouteQuoteInput(
             context.HubId,
             context.Items
@@ -182,23 +187,36 @@ public sealed class ShippingOptionManager : IShippingOptionService
         return firstNonTruckTransportMode ?? fallback;
     }
 
+    private bool IsSameCountryRoute(OrderShippingContext context)
+    {
+        if (_transportationHubMapper is null)
+        {
+            return false;
+        }
+
+        var warehouseHub = _transportationHubMapper.FindById(context.HubId);
+        return RouteCountryCodeResolver.TryResolveWarehouseCountryCode(warehouseHub, out var warehouseCountryCode) &&
+               RouteCountryCodeResolver.TryResolveAddressCountryCode(context.DestinationAddress, out var destinationCountryCode) &&
+               string.Equals(warehouseCountryCode, destinationCountryCode, StringComparison.OrdinalIgnoreCase);
+    }
+
     private static PreferenceProfile GetPreferenceProfile(PreferenceType preferenceType)
     {
         return preferenceType switch
         {
             PreferenceType.FAST => new PreferenceProfile(
                 "Fastest",
-                "Prioritizes the quickest route before any pricing or carbon work is performed.",
+                "Best for time-sensitive deliveries when you want the quickest available route.",
                 1,
                 TransportMode.PLANE),
             PreferenceType.CHEAP => new PreferenceProfile(
                 "Cheapest",
-                "Defers route generation until you confirm the most cost-conscious preference.",
+                "Best value when keeping delivery costs low matters more than speed.",
                 5,
                 TransportMode.SHIP),
             _ => new PreferenceProfile(
                 "Greenest",
-                "Uses the low-emission preference profile and only calculates the final route after selection.",
+                "A balanced delivery choice that keeps the journey efficient while reducing transport impact.",
                 4,
                 TransportMode.TRAIN)
         };

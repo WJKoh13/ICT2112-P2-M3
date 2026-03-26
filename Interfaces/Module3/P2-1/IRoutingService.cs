@@ -10,7 +10,7 @@ namespace ProRental.Interfaces.Module3.P2_1;
 /// </summary>
 public interface IRoutingService
 {
-    DeliveryRoute CreateMultiModalRoute(
+    Task<DeliveryRoute> CreateMultiModalRouteAsync(
         string origin,
         string destination,
         List<TransportMode> modes);

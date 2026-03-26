@@ -8,11 +8,21 @@ namespace ProRental.Models.Module3.P2_1;
 /// </summary>
 public static class PreferenceTypeModes
 {
-    public static readonly IReadOnlyDictionary<PreferenceType, List<TransportMode>> AllowedModes =
-        new Dictionary<PreferenceType, List<TransportMode>>
+    public static IReadOnlyList<TransportMode> ResolveAllowedModes(PreferenceType preferenceType, bool isSameCountry)
+    {
+        return preferenceType switch
         {
-            [PreferenceType.FAST] = [TransportMode.PLANE],
-            [PreferenceType.CHEAP] = [TransportMode.SHIP],
-            [PreferenceType.GREEN] = [TransportMode.TRAIN]
+            PreferenceType.FAST when isSameCountry => [TransportMode.TRAIN],
+            PreferenceType.CHEAP when isSameCountry => [TransportMode.TRUCK],
+            PreferenceType.GREEN when isSameCountry => [TransportMode.TRAIN],
+            PreferenceType.FAST => [TransportMode.PLANE],
+            PreferenceType.CHEAP => [TransportMode.SHIP],
+            _ => [TransportMode.TRAIN, TransportMode.SHIP]
         };
+    }
+
+    public static string GetAllowedModesLabel(PreferenceType preferenceType, bool isSameCountry)
+    {
+        return string.Join(" + ", ResolveAllowedModes(preferenceType, isSameCountry));
+    }
 }

@@ -1,20 +1,11 @@
+using ProRental.Domain.Controls;
+using ProRental.Domain.Enums;
 using ProRental.Interfaces.Module3.P2_1;
 
 namespace ProRental.Domain.Module3.P2_1.Controls;
 
 public sealed class RouteDistanceCalculator : IRouteDistanceCalculator
 {
-    private static readonly Dictionary<(string StartPoint, string EndPoint), double> DistancesByLeg = new()
-    {
-        { ("ProRental Warehouse", "PLANE Hub"), 18d },
-        { ("ProRental Warehouse", "SHIP Hub"), 42d },
-        { ("ProRental Warehouse", "TRAIN Hub"), 26d },
-        { ("ProRental Warehouse", "TRUCK Hub"), 8d },
-        { ("PLANE Hub", "TRUCK Hub"), 12d },
-        { ("SHIP Hub", "TRUCK Hub"), 15d },
-        { ("TRAIN Hub", "TRUCK Hub"), 10d }
-    };
-
     private readonly IGoogleMapsApi _googleMapsApi;
 
     public RouteDistanceCalculator(IGoogleMapsApi googleMapsApi)
@@ -22,38 +13,75 @@ public sealed class RouteDistanceCalculator : IRouteDistanceCalculator
         _googleMapsApi = googleMapsApi;
     }
 
-    public double CalculateDistanceKm(string startPoint, string endPoint)
+    public async Task<double> CalculateDistanceKmAsync(
+        TransportMode transportMode,
+        RouteDistancePoint startPoint,
+        RouteDistancePoint endPoint)
     {
-        try
+        var distanceKm = transportMode switch
         {
-            var googleDistanceKm = _googleMapsApi
-                .FetchRouteDistanceKmAsync(startPoint, endPoint)
-                .GetAwaiter()
-                .GetResult();
+            TransportMode.PLANE or TransportMode.SHIP => CalculateGeodesicDistanceKm(transportMode, startPoint, endPoint),
+            _ => await _googleMapsApi.FetchRouteDistanceKmAsync(startPoint.Address, endPoint.Address)
+        };
 
-            if (googleDistanceKm.HasValue && googleDistanceKm.Value >= 0d)
-            {
-                return googleDistanceKm.Value;
-            }
-        }
-        catch
+        if (double.IsNaN(distanceKm) || double.IsInfinity(distanceKm) || distanceKm < 0d)
         {
-            // Preserve the current route-generation flow even when external API calls fail.
+            throw new RouteResolutionException($"Resolved route distance for '{startPoint.Address}' to '{endPoint.Address}' was invalid.");
         }
 
-        if (DistancesByLeg.TryGetValue((startPoint, endPoint), out var configuredDistanceKm))
-        {
-            return configuredDistanceKm;
-        }
-
-        return CalculateFallbackDistanceKm(startPoint, endPoint);
+        return distanceKm;
     }
 
-    private static double CalculateFallbackDistanceKm(string startPoint, string endPoint)
+    private static double CalculateGeodesicDistanceKm(
+        TransportMode transportMode,
+        RouteDistancePoint startPoint,
+        RouteDistancePoint endPoint)
     {
-        // Keep a deterministic local fallback so the routing seam stays demo-safe
-        // until a real external distance provider is introduced.
-        var combinedLength = Math.Max(startPoint.Length + endPoint.Length, 1);
-        return Math.Round((combinedLength % 23) + 7d, 2, MidpointRounding.AwayFromZero);
+        var (startLatitude, startLongitude) = GetValidatedCoordinates(transportMode, startPoint, "origin");
+        var (endLatitude, endLongitude) = GetValidatedCoordinates(transportMode, endPoint, "destination");
+
+        const double earthRadiusKm = 6371.0088d;
+        var latitudeDelta = DegreesToRadians(endLatitude - startLatitude);
+        var longitudeDelta = DegreesToRadians(endLongitude - startLongitude);
+        var startLatitudeRadians = DegreesToRadians(startLatitude);
+        var endLatitudeRadians = DegreesToRadians(endLatitude);
+
+        var haversine =
+            Math.Pow(Math.Sin(latitudeDelta / 2d), 2d) +
+            Math.Cos(startLatitudeRadians) *
+            Math.Cos(endLatitudeRadians) *
+            Math.Pow(Math.Sin(longitudeDelta / 2d), 2d);
+
+        var angularDistance = 2d * Math.Atan2(Math.Sqrt(haversine), Math.Sqrt(1d - haversine));
+        return Math.Round(earthRadiusKm * angularDistance, 2, MidpointRounding.AwayFromZero);
     }
+
+    private static (double Latitude, double Longitude) GetValidatedCoordinates(
+        TransportMode transportMode,
+        RouteDistancePoint point,
+        string label)
+    {
+        if (!point.Latitude.HasValue || !point.Longitude.HasValue)
+        {
+            throw new RouteResolutionException(
+                $"Valid hub coordinates are required for {transportMode} route distance resolution on the {label} endpoint '{point.Address}'.");
+        }
+
+        var latitude = point.Latitude.Value;
+        var longitude = point.Longitude.Value;
+        if (double.IsNaN(latitude) ||
+            double.IsInfinity(latitude) ||
+            latitude is < -90d or > 90d ||
+            double.IsNaN(longitude) ||
+            double.IsInfinity(longitude) ||
+            longitude is < -180d or > 180d)
+        {
+            throw new RouteResolutionException(
+                $"Valid hub coordinates are required for {transportMode} route distance resolution on the {label} endpoint '{point.Address}'.");
+        }
+
+        return (latitude, longitude);
+    }
+
+    private static double DegreesToRadians(double degrees) => degrees * (Math.PI / 180d);
 }

@@ -1,5 +1,7 @@
 using System.Net.Http.Json;
 using Microsoft.Extensions.Configuration;
+using ProRental.Configuration.Module3.P2_1;
+using ProRental.Domain.Controls;
 using ProRental.Interfaces.Module3.P2_1;
 
 namespace ProRental.Domain.Module3.P2_1.Controls;
@@ -10,7 +12,6 @@ namespace ProRental.Domain.Module3.P2_1.Controls;
 /// </summary>
 public sealed class GoogleMapsAPI : IGoogleMapsApi
 {
-    private const string ApiKeyConfigPath = "GoogleMaps:ApiKey";
     private const string RoutesEndpoint = "directions/v2:computeRoutes";
 
     private readonly HttpClient _httpClient;
@@ -22,17 +23,17 @@ public sealed class GoogleMapsAPI : IGoogleMapsApi
         _configuration = configuration;
     }
 
-    public async Task<double?> FetchRouteDistanceKmAsync(
+    public async Task<double> FetchRouteDistanceKmAsync(
         string origin,
         string destination,
         CancellationToken cancellationToken = default)
     {
-        var apiKey = _configuration[ApiKeyConfigPath];
+        var apiKey = _configuration[GoogleMapsConfigurationDiagnostics.ApiKeyConfigPath];
         if (string.IsNullOrWhiteSpace(apiKey) ||
             string.IsNullOrWhiteSpace(origin) ||
             string.IsNullOrWhiteSpace(destination))
         {
-            return null;
+            throw new RouteResolutionException("Google Maps route lookup requires a configured API key and non-empty route endpoints.");
         }
 
         using var request = new HttpRequestMessage(HttpMethod.Post, RoutesEndpoint)
@@ -58,14 +59,18 @@ public sealed class GoogleMapsAPI : IGoogleMapsApi
         using var response = await _httpClient.SendAsync(request, cancellationToken);
         if (!response.IsSuccessStatusCode)
         {
-            return null;
+            throw new RouteResolutionException(
+                $"Google Maps route lookup failed for '{origin}' to '{destination}' with status {(int)response.StatusCode} ({response.ReasonPhrase}).");
         }
 
         var payload = await response.Content.ReadFromJsonAsync<ComputeRoutesResponse>(cancellationToken: cancellationToken);
         var distanceMeters = payload?.Routes?.FirstOrDefault()?.DistanceMeters;
-        return distanceMeters.HasValue
-            ? Math.Round(distanceMeters.Value / 1000d, 2, MidpointRounding.AwayFromZero)
-            : null;
+        if (!distanceMeters.HasValue)
+        {
+            throw new RouteResolutionException($"Google Maps did not return a route distance for '{origin}' to '{destination}'.");
+        }
+
+        return Math.Round(distanceMeters.Value / 1000d, 2, MidpointRounding.AwayFromZero);
     }
 
     private sealed class ComputeRoutesResponse
