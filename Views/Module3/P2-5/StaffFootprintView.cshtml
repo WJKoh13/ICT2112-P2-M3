@@ -108,6 +108,27 @@
         .sf-total-card small {
             opacity: 0.92;
         }
+
+        .table-action-controls {
+            align-items: flex-end;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.75rem;
+        }
+
+        .table-sort-control {
+            min-width: 220px;
+        }
+
+        .table-sort-control .form-select {
+            min-height: 38px;
+        }
+
+        @@media (max-width: 576px) {
+            .table-sort-control {
+                min-width: 100%;
+            }
+        }
     </style>
 </head>
 <body>
@@ -252,9 +273,25 @@
                                 <h4 class="text-success mb-1">Saved Staff Footprints</h4>
                                 <p class="text-muted mb-0">Create, update, and delete records on this same page.</p>
                             </div>
-                            <button type="button" id="refreshStaffListBtn" class="btn btn-outline-success btn-sm">
-                                <i class="bi bi-arrow-clockwise me-1"></i>Refresh
-                            </button>
+                            <div class="table-action-controls">
+                                <div class="table-sort-control">
+                                    <label for="staffSortBy" class="form-label mb-1 small text-muted">Order by</label>
+                                    <select id="staffSortBy" class="form-select form-select-sm">
+                                        <option value="id" selected>ID</option>
+                                        <option value="staffId">Staff ID</option>
+                                        <option value="department">Department (A-Z)</option>
+                                        <option value="checkInOldest">Check In (Oldest-Newest)</option>
+                                        <option value="checkInNewest">Check In (Newest-Oldest)</option>
+                                        <option value="checkOutOldest">Check Out (Oldest-Newest)</option>
+                                        <option value="checkOutNewest">Check Out (Newest-Oldest)</option>
+                                        <option value="hours">Hours (Low-High)</option>
+                                        <option value="totalCo2">Total CO2 (Low-High)</option>
+                                    </select>
+                                </div>
+                                <button type="button" id="refreshStaffListBtn" class="btn btn-outline-success btn-sm">
+                                    <i class="bi bi-arrow-clockwise me-1"></i>Refresh
+                                </button>
+                            </div>
                         </div>
                         <div class="table-responsive">
                             <table class="table table-striped table-hover align-middle">
@@ -365,6 +402,7 @@
         const staffRecordsBody = document.getElementById('staffRecordsBody');
         const cancelEditBtn = document.getElementById('cancelEditBtn');
         const refreshStaffListBtn = document.getElementById('refreshStaffListBtn');
+        const staffSortBy = document.getElementById('staffSortBy');
 
         function clearFieldError(fieldName) {
             const errorEl = document.getElementById(`${fieldName}Error`);
@@ -592,6 +630,42 @@
             return `<tr><td colspan="8" class="text-center text-muted py-4">${message}</td></tr>`;
         }
 
+        function sortStaffRecords(records) {
+            const selectedSort = staffSortBy?.value || 'id';
+            const sorted = [...records];
+
+            sorted.sort((a, b) => {
+                if (selectedSort === 'staffId') {
+                    return (a.staffId || 0) - (b.staffId || 0);
+                }
+                if (selectedSort === 'department') {
+                    return (a.department || '').localeCompare(b.department || '');
+                }
+                if (selectedSort === 'checkInOldest') {
+                    return new Date(a.checkInTime).getTime() - new Date(b.checkInTime).getTime();
+                }
+                if (selectedSort === 'checkInNewest') {
+                    return new Date(b.checkInTime).getTime() - new Date(a.checkInTime).getTime();
+                }
+                if (selectedSort === 'checkOutOldest') {
+                    return new Date(a.checkOutTime).getTime() - new Date(b.checkOutTime).getTime();
+                }
+                if (selectedSort === 'checkOutNewest') {
+                    return new Date(b.checkOutTime).getTime() - new Date(a.checkOutTime).getTime();
+                }
+                if (selectedSort === 'hours') {
+                    return Number(a.hoursWorked || 0) - Number(b.hoursWorked || 0);
+                }
+                if (selectedSort === 'totalCo2') {
+                    return Number(a.totalStaffCo2 || 0) - Number(b.totalStaffCo2 || 0);
+                }
+
+                return (a.staffCarbonFootprintId || 0) - (b.staffCarbonFootprintId || 0);
+            });
+
+            return sorted;
+        }
+
         async function loadStaffRecords() {
             try {
                 staffRecordsBody.innerHTML = createEmptyRow('Loading records...');
@@ -606,7 +680,8 @@
                     return;
                 }
 
-                staffRecordsBody.innerHTML = records.map(record => `
+                const sortedRecords = sortStaffRecords(records);
+                staffRecordsBody.innerHTML = sortedRecords.map(record => `
                     <tr>
                         <td>${record.staffCarbonFootprintId}</td>
                         <td>${record.staffId}</td>
@@ -742,6 +817,10 @@
             loadStaffRecords();
         });
 
+        staffSortBy.addEventListener('change', () => {
+            loadStaffRecords();
+        });
+
         staffRecordsBody.addEventListener('click', async (event) => {
             const editBtn = event.target.closest('.edit-staff-btn');
             const deleteBtn = event.target.closest('.delete-staff-btn');
@@ -806,4 +885,3 @@
     </script>
 </body>
 </html>
-
