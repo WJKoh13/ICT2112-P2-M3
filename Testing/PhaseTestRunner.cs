@@ -181,15 +181,11 @@ internal static class Phase0Tests
         route.SetDestinationAddress("Customer B");
         route.SetTotalDistanceKm(128.5);
         route.SetIsValid(true);
-        route.SetOriginHubId(14);
-        route.SetDestinationHubId(15);
 
         TestAssertions.AssertEqual("Warehouse A", route.GetOriginAddress());
         TestAssertions.AssertEqual("Customer B", route.GetDestinationAddress());
         TestAssertions.AssertEqual(128.5, route.GetTotalDistanceKm());
         TestAssertions.AssertEqual(true, route.GetIsValid());
-        TestAssertions.AssertEqual(14, route.GetOriginHubId());
-        TestAssertions.AssertEqual(15, route.GetDestinationHubId());
     }
 
     private static void Feature1EnumMappingsUseSnakeCase()

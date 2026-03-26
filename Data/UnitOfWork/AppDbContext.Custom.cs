@@ -290,41 +290,6 @@ public partial class AppDbContext
                   .HasColumnName("hub_type").HasColumnType("hub_type");
         });
 
-        // The initial schema for Feature 1 keeps these values out of the scaffolded tables.
-        // Ignore the scaffold-only relationships/shadow keys here instead of editing generated files.
-        modelBuilder.Entity<Checkout>(entity =>
-        {
-            entity.Ignore(nameof(Checkout.Delivery));
-            entity.Ignore("Deliveryid");
-        });
-
-        modelBuilder.Entity<Deliverymethod>(entity =>
-        {
-            entity.Ignore(nameof(Deliverymethod.Checkouts));
-        });
-
-        modelBuilder.Entity<Transport>(entity =>
-        {
-            entity.Ignore(nameof(Transport.RouteLegs));
-        });
-
-        modelBuilder.Entity<TransportationHub>(entity =>
-        {
-            entity.Ignore(nameof(TransportationHub.DeliveryRouteOriginHubs));
-            entity.Ignore(nameof(TransportationHub.DeliveryRouteDestinationHubs));
-        });
-
-        modelBuilder.Entity<DeliveryRoute>(entity =>
-        {
-            entity.Ignore("OriginHubId");
-            entity.Ignore("DestinationHubId");
-        });
-
-        modelBuilder.Entity<RouteLeg>(entity =>
-        {
-            entity.Ignore("TransportId");
-        });
-
         modelBuilder.Entity<User>(entity =>
       {
             entity.Property<UserRole>("UserRole").HasField("_userRole").UsePropertyAccessMode(PropertyAccessMode.Field)

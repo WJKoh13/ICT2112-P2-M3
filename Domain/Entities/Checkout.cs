@@ -17,9 +17,6 @@ public partial class Checkout
     private int? _optionId;
     private int? OptionId { get => _optionId; set => _optionId = value; }
 
-    private int? _deliveryid;
-    private int? Deliveryid { get => _deliveryid; set => _deliveryid = value; }
-
     private bool? _notifyoptin;
     private bool? Notifyoptin { get => _notifyoptin; set => _notifyoptin = value; }
 
@@ -29,8 +26,6 @@ public partial class Checkout
     public virtual Cart Cart { get; private set; } = null!;
 
     public virtual Customer Customer { get; private set; } = null!;
-
-    public virtual Deliverymethod? Delivery { get; private set; }
 
     public virtual ShippingOption? Option { get; private set; }
 

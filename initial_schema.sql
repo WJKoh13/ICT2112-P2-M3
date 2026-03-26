@@ -1256,5 +1256,6 @@ ALTER TABLE return_stage
 
 -- Team 6 → Team 4: Checkout.deliveryId
 ALTER TABLE Checkout
+-- Note: this cross-team FK uses Checkout.option_id, not deliveryId.
 ADD CONSTRAINT fk_checkout_delivery
     FOREIGN KEY (option_id) REFERENCES shipping_option(option_id) ON DELETE RESTRICT; 

@@ -102,15 +102,11 @@ Role:
 - `GetDestinationAddress()`
 - `GetTotalDistanceKm()`
 - `GetIsValid()`
-- `GetOriginHubId()`
-- `GetDestinationHubId()`
 - `GetOrderedRouteLegs()`
 - `SetOriginAddress(string originAddress)`
 - `SetDestinationAddress(string destinationAddress)`
 - `SetTotalDistanceKm(double totalDistanceKm)`
 - `SetIsValid(bool isValid)`
-- `SetOriginHubId(int? originHubId)`
-- `SetDestinationHubId(int? destinationHubId)`
 
 **`RouteLeg`**
 
