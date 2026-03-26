@@ -40,23 +40,4 @@ public partial class RouteLeg
         _isLastMile = isLastMile && !isSingleLeg;
     }
 
-    public void ConfigureLeg(
-        int sequence,
-        string startPoint,
-        string endPoint,
-        double distanceKm,
-        TransportMode transportMode,
-        bool isFirstMile,
-        bool isLastMile)
-    {
-        ConfigureLeg(
-            sequence,
-            startPoint,
-            endPoint,
-            distanceKm,
-            transportMode,
-            isFirstMile,
-            isMainTransport: false,
-            isLastMile);
-    }
 }

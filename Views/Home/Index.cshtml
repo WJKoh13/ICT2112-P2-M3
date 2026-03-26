@@ -140,11 +140,11 @@ z    <nav class="navbar navbar-expand-lg navbar-dark bg-dark sticky-top shadow-s
 
                 @* Auth buttons *@
                 <div class="d-flex gap-2">
-                    @if (HttpContextAccessor.HttpContext!.Session.GetInt32("SessionId") != null)
+                    @if (Context.Session.GetInt32("SessionId") != null)
                     {
                         <span class="navbar-text text-white-50 small me-1">
-                            <i class="bi bi-person-circle me-1"></i>@HttpContextAccessor.HttpContext!.Session.GetString("UserName")
-                            <span class="badge bg-secondary ms-1">@HttpContextAccessor.HttpContext!.Session.GetString("UserRole")</span>
+                            <i class="bi bi-person-circle me-1"></i>@Context.Session.GetString("UserName")
+                            <span class="badge bg-secondary ms-1">@Context.Session.GetString("UserRole")</span>
                             </span>
                         <form asp-controller="Module1" asp-action="Logout" method="post" class="d-inline">
                             @Html.AntiForgeryToken()

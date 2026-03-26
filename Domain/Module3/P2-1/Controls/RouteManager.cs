@@ -60,7 +60,7 @@ public sealed class RouteManager : IRoutingService, IRouteQueryService
         }
 
         route.SetTotalDistanceKm((double)Math.Round(
-            (decimal)(routeLegs.Sum(routeLeg => routeLeg.GetDistanceKm()) ?? 0),
+            (decimal)(routeLegs.Sum(routeLeg => routeLeg.GetDistanceKm())),
             2,
             MidpointRounding.AwayFromZero));
 
