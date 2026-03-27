@@ -1,17 +1,20 @@
 using ProRental.Data.Module3.P2_5.Interfaces;
 using ProRental.Domain.Entities;
+using ProRental.Domain.Entities.Module3;
+using ProRental.Interfaces.Module3;
 using ProRental.Interfaces.Module3.P2_5;
 
 namespace ProRental.Domain.Module3.P2_5.Controls;
 
 public sealed class StaffFootprintControl : IStaffFootprintControl
 {
-    private const double EmissionRatePerHour = 3.53;
     private readonly IStaffFootprintGateway _staffGateway;
+    private readonly StaffFootprintStrategy _staffFootprintStrategy;
 
     public StaffFootprintControl(IStaffFootprintGateway staffGateway)
     {
         _staffGateway = staffGateway;
+        _staffFootprintStrategy = new StaffFootprintStrategy();
     }
 
     public Task<List<StaffFootprintListItem>> GetStaffFootprintsAsync()
@@ -90,7 +93,7 @@ public sealed class StaffFootprintControl : IStaffFootprintControl
             throw new ArgumentException("checkOutTime must be later than checkInTime.");
     }
 
-    private static (double roundedHoursWorked, double totalStaffCo2) CalculateStaffFootprint(
+    private (double roundedHoursWorked, double totalStaffCo2) CalculateStaffFootprint(
         DateTime checkInTime,
         DateTime checkOutTime,
         string department)
@@ -99,23 +102,11 @@ public sealed class StaffFootprintControl : IStaffFootprintControl
         if (hoursWorked <= 0)
             throw new ArgumentException("hoursWorked must be a positive number.");
 
-        var departmentWeight = GetDepartmentWeight(department);
         var roundedHoursWorked = Math.Round(hoursWorked, 2);
-        var totalStaffCo2 = Math.Round(roundedHoursWorked * EmissionRatePerHour * departmentWeight, 2);
+        var totalStaffCo2 = _staffFootprintStrategy.CalculateFootprint(
+            roundedHoursWorked,
+            _staffFootprintStrategy.GetDepartmentWeight(department));
 
         return (roundedHoursWorked, totalStaffCo2);
-    }
-
-    private static double GetDepartmentWeight(string department)
-    {
-        return department.Trim().ToLowerInvariant() switch
-        {
-            "customer support" => 1.00,
-            "operations" => 1.15,
-            "finance" => 1.10,
-            "marketing" => 2.00,
-            "it" => 1.20,
-            _ => 1.00
-        };
     }
 }
