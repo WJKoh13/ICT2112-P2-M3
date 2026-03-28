@@ -7,10 +7,12 @@ namespace ProRental.Domain.Module3.P2_1.Controls;
 public sealed class BatchQueryManager : IBatchDisplayManager, IBatchQueryManager
 {
     private readonly IDeliveryBatchMapper _deliveryBatchMapper;
+    private readonly IBatchOrderMapper _batchOrderMapper;
 
-    public BatchQueryManager(IDeliveryBatchMapper deliveryBatchMapper)
+    public BatchQueryManager(IDeliveryBatchMapper deliveryBatchMapper, IBatchOrderMapper batchOrderMapper)
     {
         _deliveryBatchMapper = deliveryBatchMapper;
+        _batchOrderMapper = batchOrderMapper;
     }
 
     public List<string> getBatches()
@@ -26,5 +28,12 @@ public sealed class BatchQueryManager : IBatchDisplayManager, IBatchQueryManager
     public List<DeliveryBatch> GetBatchesForDisplay()
     {
         return _deliveryBatchMapper.findAll();
+    }
+
+    public Dictionary<int, List<string>> GetOrderIdsByBatchForDisplay(IEnumerable<DeliveryBatch> batches)
+    {
+        return batches.ToDictionary(
+            batch => batch.GetDeliveryBatchIdentifier(),
+            batch => _batchOrderMapper.getOrderIdsByBatch(batch.GetDeliveryBatchIdentifier()));
     }
 }

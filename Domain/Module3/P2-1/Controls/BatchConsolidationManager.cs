@@ -10,6 +10,7 @@ namespace ProRental.Domain.Module3.P2_1.Controls;
 public sealed class BatchConsolidationManager : IBatchDelivery
 {
     private const double ConsolidationEfficiencyFactor = 0.75d;
+    private const int ShowcaseFallbackRouteId = 2;
 
     private readonly IBatchValidator _batchValidator;
     private readonly IOrderService _orderService;
@@ -86,14 +87,9 @@ public sealed class BatchConsolidationManager : IBatchDelivery
             }
 
             var hub = _hubInfoService.GetHubInfo(destinationHubId);
-            if (hub is null || hub.GetHubType() != HubType.WAREHOUSE)
-            {
-                handleConsolidationFailure(orderId, "Destination hub is not a warehouse.");
-            }
-
             if (hub is null)
             {
-                throw new InvalidOperationException("Warehouse lookup returned null.");
+                throw new InvalidOperationException($"Consolidation failed for order '{orderId}': destination hub could not be resolved.");
             }
 
             targetBatch = createNewBatch(destinationHubId, hub.GetAddress());
@@ -166,6 +162,26 @@ public sealed class BatchConsolidationManager : IBatchDelivery
         }
 
         return true;
+    }
+
+    public bool resetOrderBatchAssignments()
+    {
+        var links = _context.BatchOrders.ToList();
+        if (links.Count > 0)
+        {
+            _context.BatchOrders.RemoveRange(links);
+        }
+
+        var batches = _deliveryBatchMapper.findAll();
+        foreach (var batch in batches)
+        {
+            batch.SetTotalOrders(0);
+            batch.updateBatchWeight(0d);
+            batch.updateCarbonSavings(0d);
+            _context.DeliveryBatches.Update(batch);
+        }
+
+        return _context.SaveChanges() >= 0;
     }
 
     public double CalculateUnconsolidatedFirstLegCost(IEnumerable<string> orderIds, double distanceKm)
