@@ -9,7 +9,6 @@ namespace ProRental.Domain.Module3.P2_1.Controls;
 
 public sealed class BatchConsolidationManager : IBatchDelivery
 {
-    private const double ConsolidationEfficiencyFactor = 0.75d;
     private const int ShowcaseFallbackRouteId = 2;
 
     private readonly IBatchValidator _batchValidator;
@@ -19,7 +18,6 @@ public sealed class BatchConsolidationManager : IBatchDelivery
     private readonly IHubInfoService _hubInfoService;
     private readonly IDeliveryBatchMapper _deliveryBatchMapper;
     private readonly IBatchOrderMapper _batchOrderMapper;
-    private readonly IShippingOptionMapper _shippingOptionMapper;
     private readonly AppDbContext _context;
 
     public BatchConsolidationManager(
@@ -30,7 +28,6 @@ public sealed class BatchConsolidationManager : IBatchDelivery
         IHubInfoService hubInfoService,
         IDeliveryBatchMapper deliveryBatchMapper,
         IBatchOrderMapper batchOrderMapper,
-        IShippingOptionMapper shippingOptionMapper,
         AppDbContext context)
     {
         _batchValidator = batchValidator;
@@ -40,7 +37,6 @@ public sealed class BatchConsolidationManager : IBatchDelivery
         _hubInfoService = hubInfoService;
         _deliveryBatchMapper = deliveryBatchMapper;
         _batchOrderMapper = batchOrderMapper;
-        _shippingOptionMapper = shippingOptionMapper;
         _context = context;
     }
 
@@ -62,7 +58,7 @@ public sealed class BatchConsolidationManager : IBatchDelivery
             handleConsolidationFailure(orderId, "Order does not have a valid delivery address.");
         }
 
-        var routeId = ResolveRouteIdForOrder(int.Parse(orderId));
+        var routeId = ShowcaseFallbackRouteId;
         var mainTransportLeg = _routeQueryService.retrieveMainTransportLeg(routeId)
             ?? throw new InvalidOperationException($"No main transport route leg was found for route ID '{routeId}'.");
 
@@ -126,8 +122,7 @@ public sealed class BatchConsolidationManager : IBatchDelivery
             distanceKm: distanceKm,
             storageCo2: 0d);
 
-        var adjustedConsolidatedCost = consolidatedLegCost * ConsolidationEfficiencyFactor;
-        return Math.Max(0d, unconsolidatedCost - adjustedConsolidatedCost);
+        return Math.Max(0d, unconsolidatedCost - consolidatedLegCost);
     }
 
     public DeliveryBatch createNewBatch(int destHubID, string destinationAddress)
@@ -258,40 +253,13 @@ public sealed class BatchConsolidationManager : IBatchDelivery
         return orderWeightKg > 0d ? orderWeightKg : 1d;
     }
 
-    private int ResolveRouteIdForOrder(int orderId)
-    {
-        var routeId = _shippingOptionMapper
-            .FindSelectedRouteIdByOrderIdAsync(orderId)
-            .GetAwaiter()
-            .GetResult();
-
-        if (!routeId.HasValue || routeId.Value <= 0)
-        {
-            throw new InvalidOperationException($"Order '{orderId}' does not have a selected shipping route.");
-        }
-
-        return routeId.Value;
-    }
-
     private double ResolveMainTransportLegDistance(IEnumerable<string> orderIds)
     {
-        var routeIds = orderIds
-            .Select(orderId => int.TryParse(orderId, out var parsedOrderId) ? parsedOrderId : (int?)null)
-            .Where(parsedOrderId => parsedOrderId.HasValue)
-            .Select(parsedOrderId => ResolveRouteIdForOrder(parsedOrderId!.Value))
-            .Distinct()
-            .ToList();
-
-        if (routeIds.Count == 0)
+        if (orderIds is null || !orderIds.Any())
         {
             return 0d;
         }
 
-        if (routeIds.Count > 1)
-        {
-            throw new InvalidOperationException("Batch contains orders mapped to different delivery routes.");
-        }
-
-        return _routeQueryService.retrieveMainTransportLeg(routeIds[0])?.GetDistanceKm() ?? 0d;
+        return _routeQueryService.retrieveMainTransportLeg(ShowcaseFallbackRouteId)?.GetDistanceKm() ?? 0d;
     }
 }
