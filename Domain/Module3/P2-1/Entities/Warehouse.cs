@@ -14,5 +14,8 @@ public partial class Warehouse
     public void SetWarehouseCode(string warehouseCode) => _warehouseCode = warehouseCode;
     public void SetTotalWarehouseVolume(double? totalWarehouseVolume) => _totalWarehouseVolume = totalWarehouseVolume;
     public void SetMaxProductCapacity(int? maxProductCapacity) => _maxProductCapacity = maxProductCapacity;
+    public void SetClimateControlEmissionRate(double? climateControlEmissionRate) => _climateControlEmissionRate = climateControlEmissionRate;
+    public void SetLightingEmissionRate(double? lightingEmissionRate) => _lightingEmissionRate = lightingEmissionRate;
+    public void SetSecuritySystemEmissionRate(double? securitySystemEmissionRate) => _securitySystemEmissionRate = securitySystemEmissionRate;
 
 }
