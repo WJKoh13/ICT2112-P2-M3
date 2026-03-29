@@ -177,6 +177,7 @@ builder.Services.AddScoped<ProRental.Data.Module3.P2_1.Interfaces.IReturnStageGa
 builder.Services.AddScoped<ITransportService, TransportationManager>();
 builder.Services.AddScoped<TransportationFactory>();
 builder.Services.AddScoped<ReturnStageCalculator>();
+builder.Services.AddScoped<ProRental.Domain.Module3.P2_1.Interfaces.ICarbonReturnService, ReturnStageSurchargeService>();
 builder.Services.AddScoped<ReturnStageSurchargeService>();
 builder.Services.AddScoped<ReturnCarbonReportService>();
 
