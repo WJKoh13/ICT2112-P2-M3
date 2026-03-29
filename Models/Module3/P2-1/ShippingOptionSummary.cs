@@ -8,7 +8,7 @@ namespace ProRental.Models.Module3.P2_1;
 /// </summary>
 public sealed record ShippingOptionSummary(
     int OptionId,
-    int OrderId,
+    int CheckoutId,
     PreferenceType PreferenceType,
     string DisplayName,
     decimal Cost,

@@ -24,7 +24,7 @@ public sealed class ShippingOptionManager : IShippingOptionService
     ];
 
     private readonly IShippingOptionMapper _shippingOptionMapper;
-    private readonly IOrderService _orderService;
+    private readonly ICheckoutShippingContextService _checkoutShippingContextService;
     private readonly IRoutingService _routingService;
     private readonly ITransportCarbonService _transportCarbonService;
     private readonly ITransportationHubMapper? _transportationHubMapper;
@@ -32,14 +32,14 @@ public sealed class ShippingOptionManager : IShippingOptionService
 
     public ShippingOptionManager(
         IShippingOptionMapper shippingOptionMapper,
-        IOrderService orderService,
+        ICheckoutShippingContextService checkoutShippingContextService,
         IRoutingService routingService,
         ITransportationHubMapper transportationHubMapper,
         ITransportCarbonService transportCarbonService,
         AppDbContext context)
     {
         _shippingOptionMapper = shippingOptionMapper;
-        _orderService = orderService;
+        _checkoutShippingContextService = checkoutShippingContextService;
         _routingService = routingService;
         _transportationHubMapper = transportationHubMapper;
         _transportCarbonService = transportCarbonService;
@@ -48,25 +48,25 @@ public sealed class ShippingOptionManager : IShippingOptionService
 
     internal ShippingOptionManager(
         IShippingOptionMapper shippingOptionMapper,
-        IOrderService orderService,
+        ICheckoutShippingContextService checkoutShippingContextService,
         IRoutingService routingService,
         ITransportationHubMapper? transportationHubMapper,
         ITransportCarbonService transportCarbonService)
     {
         _shippingOptionMapper = shippingOptionMapper;
-        _orderService = orderService;
+        _checkoutShippingContextService = checkoutShippingContextService;
         _routingService = routingService;
         _transportationHubMapper = transportationHubMapper;
         _transportCarbonService = transportCarbonService;
         _context = null;
     }
 
-    public async Task<IReadOnlyList<ShippingPreferenceCard>> GetPreferenceChoicesForOrderAsync(
-        int orderId,
+    public async Task<IReadOnlyList<ShippingPreferenceCard>> GetPreferenceChoicesForCheckoutAsync(
+        int checkoutId,
         CancellationToken cancellationToken = default)
     {
-        var context = await _orderService.GetShippingContextAsync(orderId, cancellationToken)
-            ?? throw new InvalidOperationException($"Order '{orderId}' was not found.");
+        var context = await _checkoutShippingContextService.GetShippingContextAsync(checkoutId, cancellationToken)
+            ?? throw new InvalidOperationException($"Checkout '{checkoutId}' was not found.");
         var isSameCountry = IsSameCountryRoute(context);
 
         return PreferenceOrder
@@ -75,7 +75,7 @@ public sealed class ShippingOptionManager : IShippingOptionService
                 var profile = GetPreferenceProfile(preferenceType);
 
                 return new ShippingPreferenceCard(
-                    context.OrderId,
+                    context.CheckoutId,
                     preferenceType,
                     profile.DisplayName,
                     profile.Description,
@@ -90,9 +90,9 @@ public sealed class ShippingOptionManager : IShippingOptionService
     {
         ArgumentNullException.ThrowIfNull(request);
 
-        if (request.OrderId <= 0)
+        if (request.CheckoutId <= 0)
         {
-            throw new ArgumentOutOfRangeException(nameof(request.OrderId));
+            throw new ArgumentOutOfRangeException(nameof(request.CheckoutId));
         }
 
         if (_context is null || _context.Database.CurrentTransaction is not null)
@@ -110,17 +110,8 @@ public sealed class ShippingOptionManager : IShippingOptionService
         SelectShippingPreferenceRequest request,
         CancellationToken cancellationToken)
     {
-        var context = await _orderService.GetShippingContextAsync(request.OrderId, cancellationToken)
-            ?? throw new InvalidOperationException($"Order '{request.OrderId}' was not found.");
-
-        var order = await _shippingOptionMapper.FindOrderWithCheckoutAsync(request.OrderId, cancellationToken)
-            ?? throw new InvalidOperationException($"Order '{request.OrderId}' was not found.");
-
-        var checkoutId = order.GetOrderContext().CheckoutId;
-        if (checkoutId <= 0)
-        {
-            throw new InvalidOperationException($"Order '{request.OrderId}' does not have a checkout record.");
-        }
+        var context = await _checkoutShippingContextService.GetShippingContextAsync(request.CheckoutId, cancellationToken)
+            ?? throw new InvalidOperationException($"Checkout '{request.CheckoutId}' was not found.");
 
         var profile = GetPreferenceProfile(request.PreferenceType);
         var allowedModes = PreferenceTypeModes.ResolveAllowedModes(request.PreferenceType, IsSameCountryRoute(context)).ToList();
@@ -137,11 +128,11 @@ public sealed class ShippingOptionManager : IShippingOptionService
             route,
             quoteInput);
 
-        var existingOptions = await _shippingOptionMapper.FindByOrderIdAsync(request.OrderId, cancellationToken);
+        var existingOptions = await _shippingOptionMapper.FindByCheckoutIdAsync(request.CheckoutId, cancellationToken);
         var option = existingOptions.FirstOrDefault() ?? new ShippingOption();
 
         option.ConfigureGeneratedOption(
-            request.OrderId,
+            request.CheckoutId,
             routeId > 0 ? routeId : null,
             request.PreferenceType,
             profile.DisplayName,
@@ -162,12 +153,12 @@ public sealed class ShippingOptionManager : IShippingOptionService
         await _shippingOptionMapper.SaveChangesAsync(cancellationToken);
 
         var optionId = option.GetSummary().OptionId;
-        await _shippingOptionMapper.SetCheckoutSelectedOptionAsync(checkoutId, optionId, cancellationToken);
+        await _shippingOptionMapper.SetCheckoutSelectedOptionAsync(request.CheckoutId, optionId, cancellationToken);
         await _shippingOptionMapper.SaveChangesAsync(cancellationToken);
 
         return option.GetSelectionResult() with
         {
-            OrderId = request.OrderId,
+            CheckoutId = request.CheckoutId,
             DistanceKm = route.GetTotalDistanceKm() ?? 0d
         };
     }
@@ -191,7 +182,7 @@ public sealed class ShippingOptionManager : IShippingOptionService
         return firstNonTruckTransportMode ?? fallback;
     }
 
-    private bool IsSameCountryRoute(OrderShippingContext context)
+    private bool IsSameCountryRoute(CheckoutShippingContext context)
     {
         if (_transportationHubMapper is null)
         {

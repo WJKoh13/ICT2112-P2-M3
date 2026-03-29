@@ -19,21 +19,22 @@ public sealed class ShippingOptionMapper : IShippingOptionMapper
         _context = context;
     }
 
-    public Task<Order?> FindOrderWithCheckoutAsync(int orderId, CancellationToken cancellationToken = default)
+    public Task<Checkout?> FindCheckoutAsync(int checkoutId, CancellationToken cancellationToken = default)
     {
-        return _context.Orders
+        return _context.Checkouts
+            .Include(checkout => checkout.Cart)
             .AsNoTracking()
-            .FirstOrDefaultAsync(order => EF.Property<int>(order, "Orderid") == orderId, cancellationToken);
+            .FirstOrDefaultAsync(checkout => EF.Property<int>(checkout, "Checkoutid") == checkoutId, cancellationToken);
     }
 
-    public async Task<IReadOnlyList<ShippingOption>> FindByOrderIdAsync(int orderId, CancellationToken cancellationToken = default)
+    public async Task<IReadOnlyList<ShippingOption>> FindByCheckoutIdAsync(int checkoutId, CancellationToken cancellationToken = default)
     {
         // Options are returned in insertion order so checkout presents a stable FAST/CHEAP/GREEN set.
         var options = await _context.ShippingOptions
             .Include(option => option.Route)
             .AsNoTracking()
-            .Where(option => EF.Property<int?>(option, "OrderId") == orderId)
-            .OrderBy(option => EF.Property<int?>(option, "OptionId"))
+            .Where(option => EF.Property<int>(option, "CheckoutId") == checkoutId)
+            .OrderBy(option => EF.Property<int>(option, "OptionId"))
             .ToListAsync(cancellationToken);
 
         return options;
@@ -75,17 +76,10 @@ public sealed class ShippingOptionMapper : IShippingOptionMapper
             .FirstOrDefaultAsync(option => EF.Property<int>(option, "OptionId") == optionId, cancellationToken)
             ?? throw new InvalidOperationException($"Shipping option '{optionId}' was not found.");
 
-        var order = await _context.Orders
-            .AsNoTracking()
-            .FirstOrDefaultAsync(item => EF.Property<int>(item, "Checkoutid") == checkoutId, cancellationToken)
-            ?? throw new InvalidOperationException($"Order for checkout '{checkoutId}' was not found.");
-
-        var orderId = order.GetOrderContext().OrderId;
-
-        if (!shippingOption.BelongsToOrder(orderId))
+        if (!shippingOption.BelongsToCheckout(checkoutId))
         {
             throw new InvalidOperationException(
-                $"Shipping option '{optionId}' does not belong to order '{orderId}'.");
+                $"Shipping option '{optionId}' does not belong to checkout '{checkoutId}'.");
         }
 
         checkout.SelectShippingOption(optionId);

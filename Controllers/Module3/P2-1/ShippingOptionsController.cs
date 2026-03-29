@@ -22,21 +22,21 @@ public sealed class ShippingOptionsController : Controller
     }
 
     [HttpGet]
-    public async Task<IActionResult> GetShippingOptions(int orderId, CancellationToken cancellationToken)
+    public async Task<IActionResult> GetShippingOptions(int checkoutId, CancellationToken cancellationToken)
     {
-        var options = await _shippingOptionService.GetPreferenceChoicesForOrderAsync(orderId, cancellationToken);
-        ViewData["OrderId"] = orderId;
+        var options = await _shippingOptionService.GetPreferenceChoicesForCheckoutAsync(checkoutId, cancellationToken);
+        ViewData["CheckoutId"] = checkoutId;
         return View($"{ViewRoot}Index.cshtml", options);
     }
 
     [HttpPost]
     [ValidateAntiForgeryToken]
-    public async Task<IActionResult> SelectShippingPreference(int orderId, PreferenceType preferenceType, CancellationToken cancellationToken)
+    public async Task<IActionResult> SelectShippingPreference(int checkoutId, PreferenceType preferenceType, CancellationToken cancellationToken)
     {
         try
         {
             var result = await _shippingOptionService.ConfirmPreferenceSelectionAsync(
-                new SelectShippingPreferenceRequest(orderId, preferenceType),
+                new SelectShippingPreferenceRequest(checkoutId, preferenceType),
                 cancellationToken);
 
             return View($"{ViewRoot}Selected.cshtml", result);
@@ -44,8 +44,8 @@ public sealed class ShippingOptionsController : Controller
         catch (RouteResolutionException exception)
         {
             ModelState.AddModelError(string.Empty, exception.Message);
-            var options = await _shippingOptionService.GetPreferenceChoicesForOrderAsync(orderId, cancellationToken);
-            ViewData["OrderId"] = orderId;
+            var options = await _shippingOptionService.GetPreferenceChoicesForCheckoutAsync(checkoutId, cancellationToken);
+            ViewData["CheckoutId"] = checkoutId;
             return View($"{ViewRoot}Index.cshtml", options);
         }
     }

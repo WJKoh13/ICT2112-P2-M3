@@ -27,6 +27,7 @@ public static class Feature1ServiceCollectionExtensions
         services.AddScoped<ITransportationHubMapper, TransportationHubMapper>();
         services.AddScoped<IInventoryService, DummyInventoryService>();
         services.AddScoped<IShippingOptionMapper, ShippingOptionMapper>();
+        services.AddScoped<ICheckoutShippingContextService, ShippingCheckoutContextService>();
         services.AddScoped<IOrderService, ShippingOrderContextService>();
         services.AddScoped<IRouteDistanceCalculator, RouteDistanceCalculator>();
         services.AddScoped<IRouteQueryService, RouteManager>();
