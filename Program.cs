@@ -28,6 +28,20 @@ using ProRental.Domain.Controls;
 // using ProRental.Domain.Entities;
 using ProRental.Interfaces.Domain;
 using ProRental.Interfaces.Data;
+using ProRental.Interfaces.Data;
+using ProRental.Data;
+using ProRental.Interfaces.Domain;
+using ProRental.Domain.Controls;
+using ProRental.Controllers.Module1;
+using ProRental.Data.Services;
+
+
+// uncomment when ready to code
+// using ProRental.Data;
+// using ProRental.Domain.Controls;
+// //using ProRental.Domain.Entities;
+// using ProRental.Interfaces.Domain;
+// using ProRental.Interfaces.Data;
 // using ProRental.Controllers;
 using ProRental.Controllers.Module1;
 
@@ -160,7 +174,7 @@ builder.Services.AddDbContext<AppDbContext>(options =>
 //Services builder(add your mappers/gateways, controllers, control and interface classes here)
 //Team P2-1
 // Data source
-builder.Services.AddScoped<ProRental.Data.Interfaces.ITransportationHubMapper, ProRental.Data.Gateways.TransportationHubMapper>();
+builder.Services.AddScoped<ProRental.Data.Interfaces.ITransportationHubMapper, ProRental.Data.Mappers.TransportationHubMapper>();
 
 // Domain
 builder.Services.AddScoped<ProRental.Domain.Control.TransportationHubFactory>();
@@ -256,7 +270,30 @@ builder.Services.AddScoped<IPackagingFootprintControl, PackagingFootprintControl
 // Module 1 order service — provides order + product data for packaging profile creation
 builder.Services.AddScoped<ProRental.Data.Module1.Interfaces.IOrderService, ProRental.Data.Module1.Gateways.OrderService>();
 
-// Domain
+// // Presentation/Controllers
+// builder.Services.AddScoped<IOrderService, OrderManagementControl>();
+
+// Data source (mappers / DB-backed service implementations)
+builder.Services.AddScoped<ISessionMapper, SessionMapper>();
+builder.Services.AddScoped<IAuthenticationService, ProRentalAuthenticationService>();
+builder.Services.AddScoped<ICustomerValidationService, CustomerValidationService>();
+
+// Domain (controls — pure business logic, no DB dependency)
+builder.Services.AddScoped<ISessionService, SessionControl>();
+builder.Services.AddScoped<AuthenticationControl>();
+builder.Services.AddScoped<CustomerIDValidationControl>();
+
+// HTTP context accessor (required for session access in Razor layouts)
+builder.Services.AddHttpContextAccessor();
+
+// Session middleware (required for HttpContext.Session)
+builder.Services.AddSession(options =>
+{
+    options.IdleTimeout = TimeSpan.FromHours(2);
+    options.Cookie.HttpOnly = true;
+    options.Cookie.IsEssential = true;
+    options.Cookie.SameSite = SameSiteMode.Lax;
+});
 
 // Data source (mappers / DB-backed service implementations)
 builder.Services.AddScoped<ISessionMapper, SessionMapper>();
