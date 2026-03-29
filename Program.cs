@@ -21,28 +21,10 @@ using ProRental.Domain.Entities;
 using ProRental.Interfaces.Data.Module3.P2_5;
 using ProRental.Interfaces.Module2.P2_3;
 using ProRental.Interfaces.Module3.P2_5;
-
-// uncomment when ready to code
 using ProRental.Data;
 using ProRental.Domain.Controls;
-// using ProRental.Domain.Entities;
 using ProRental.Interfaces.Domain;
 using ProRental.Interfaces.Data;
-using ProRental.Interfaces.Data;
-using ProRental.Data;
-using ProRental.Interfaces.Domain;
-using ProRental.Domain.Controls;
-using ProRental.Controllers.Module1;
-using ProRental.Data.Services;
-
-
-// uncomment when ready to code
-// using ProRental.Data;
-// using ProRental.Domain.Controls;
-// //using ProRental.Domain.Entities;
-// using ProRental.Interfaces.Domain;
-// using ProRental.Interfaces.Data;
-// using ProRental.Controllers;
 using ProRental.Controllers.Module1;
 
 //p2-1 feat 1 test
@@ -192,7 +174,6 @@ builder.Services.AddScoped<IPricingRuleGateway, PricingRuleGateway>();
 builder.Services.AddScoped<ProRental.Data.Module3.P2_1.Interfaces.IReturnStageGateway, ProRental.Data.Module3.P2_1.Gateways.ReturnStageGateway>();
 
 // Domain
-builder.Services.AddScoped<IRouteDistanceCalculator, RouteDistanceCalculator>();
 builder.Services.AddScoped<ITransportService, TransportationManager>();
 builder.Services.AddScoped<TransportationFactory>();
 builder.Services.AddScoped<ReturnStageCalculator>();
@@ -208,7 +189,6 @@ builder.Services.AddScoped<IDeliveryBatchMapper, DeliveryBatchMapper>();
 builder.Services.AddScoped<IBatchValidator, BatchValidator>();
 builder.Services.AddScoped<IBatchQueryManager, BatchQueryManager>();
 builder.Services.AddScoped<IBatchDisplayManager, BatchQueryManager>();
-builder.Services.AddScoped<IRouteQueryService, RouteQueryService>();
 builder.Services.AddScoped<IBatchDelivery, BatchConsolidationManager>();
 
 
@@ -362,7 +342,5 @@ app.MapControllerRoute(
     pattern: "{controller=Home}/{action=Index}/{id?}");
 
 app.Run();
-
-
 
 
